@@ -1,0 +1,14 @@
+@use '../tokens/colors';
+
+:root {
+    color-scheme: light;
+    --color-primary: #{colors.$blue-600};
+    --color-primary-hover: #{colors.$blue-500};
+    --color-surface: #{colors.$white};
+    --color-surface-muted: #{colors.$slate-50};
+    --color-text: #{colors.$slate-900};
+    --color-text-muted: #{colors.$slate-500};
+    --color-border: #{colors.$slate-200};
+    --color-danger: #{colors.$red-500};
+    --color-focus: #{colors.$blue-500};
+}

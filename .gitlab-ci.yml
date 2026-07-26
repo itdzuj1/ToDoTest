@@ -1,0 +1,64 @@
+stages:
+  - quality
+  - test
+  - build
+
+.frontend:
+  image: node:24.18-alpine
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/.npm/
+  before_script:
+    - cd frontend
+    - npm ci --cache .npm --prefer-offline
+
+.backend:
+  image: composer:2
+  cache:
+    key:
+      files:
+        - backend/composer.lock
+    paths:
+      - backend/vendor/
+  before_script:
+    - apk add --no-cache git unzip libpq-dev oniguruma-dev sqlite-dev $PHPIZE_DEPS
+    - docker-php-ext-install mbstring pcntl pdo_pgsql pdo_sqlite
+    - cd backend
+    - composer install --no-interaction --prefer-dist
+
+frontend:quality:
+  extends: .frontend
+  stage: quality
+  script:
+    - npm run lint
+    - npm run format:check
+    - npm run typecheck
+
+backend:quality:
+  extends: .backend
+  stage: quality
+  script:
+    - composer format:test
+    - composer analyse
+
+frontend:test:
+  extends: .frontend
+  stage: test
+  script:
+    - npm run test:run
+
+backend:test:
+  extends: .backend
+  stage: test
+  script:
+    - composer test
+
+frontend:build:
+  extends: .frontend
+  stage: build
+  script:
+    - npm run build
+

@@ -1,0 +1,23 @@
+---
+description: Nuxt 3 and TypeScript conventions
+globs: frontend/**/*.{vue,ts,scss}
+alwaysApply: false
+---
+
+# Nuxt frontend
+
+- Use Nuxt 3, Vue 3, `<script setup lang="ts">`, and strict TypeScript.
+- Keep one Nuxt application for public and `/admin` zones; use layouts and route middleware.
+- Vue SFC order: `template`, `script setup`, `style`.
+- Script order: imports, props/emits, composables/stores, state, computed, watchers/lifecycle, handlers.
+- Use PascalCase filenames and kebab-case component tags in templates.
+- Name shared primitives `Ui*`; name feature components by purpose (`TodoCard`, `TodoForm`).
+- Keep local UI state inside the component. Use Pinia only for shared state with a clear owner.
+- Extract reusable behavior into typed composables; do not use mixins or a global event bus.
+- Components must not construct endpoint URLs. Use the centralized typed API layer.
+- Model loading, empty, success, and error states explicitly.
+- Map HTTP 422 field errors through the shared form-error utility.
+- Do not use `any`, non-null assertions, or ignored errors without a documented reason.
+- Prefer props/emits and slots over implicit global communication.
+- Use scoped SCSS and design tokens; do not place raw brand colors in components.
+- Avoid inline styles except values that are genuinely dynamic.

@@ -1,0 +1,22 @@
+---
+description: Shared frontend and backend API contract
+globs: "{frontend/**/*.{ts,vue},backend/**/*.php}"
+alwaysApply: false
+---
+
+# API conventions
+
+- Keep endpoint paths in one frontend API layer; UI components never construct URLs.
+- Use kebab-case URLs, snake_case JSON fields, and camelCase TypeScript methods.
+- Use POST to create, PATCH to update, and DELETE for delete/archive according to the documented contract.
+- Successful create/update responses return the current API Resource.
+- Successful deletion returns explicit HTTP 204.
+- Validation failures use HTTP 422 with `{ errors: { field: string[] } }`.
+- Business conflicts use a stable machine-readable code and a user-safe message.
+- Do not silently unwrap different response shapes in different endpoints.
+- Paginated endpoints use one consistent data/meta structure.
+- Authenticate web requests using secure HttpOnly cookies when the selected auth approach supports it.
+- Never expose internal exception details or stack traces to clients.
+- Keep authorization enforced on the backend even when the frontend hides unavailable controls.
+- Update API types and tests whenever the public contract changes.
+- Introduce OpenAPI/code generation only when the initial contract is stable enough to justify it.

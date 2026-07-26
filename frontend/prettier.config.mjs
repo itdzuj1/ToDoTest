@@ -1,0 +1,15 @@
+export default {
+    printWidth: 120,
+    semi: false,
+    singleQuote: true,
+    tabWidth: 4,
+    trailingComma: 'all',
+    overrides: [
+        {
+            files: ['*.yml', '*.yaml'],
+            options: {
+                tabWidth: 2,
+            },
+        },
+    ],
+}

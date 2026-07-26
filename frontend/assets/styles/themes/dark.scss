@@ -1,0 +1,14 @@
+@use '../tokens/colors';
+
+[data-theme='dark'] {
+    color-scheme: dark;
+    --color-primary: #{colors.$blue-500};
+    --color-primary-hover: #{colors.$blue-600};
+    --color-surface: #{colors.$slate-900};
+    --color-surface-muted: #{colors.$slate-700};
+    --color-text: #{colors.$slate-50};
+    --color-text-muted: #{colors.$slate-200};
+    --color-border: #{colors.$slate-500};
+    --color-danger: #{colors.$red-500};
+    --color-focus: #{colors.$blue-500};
+}

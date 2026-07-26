@@ -1,0 +1,24 @@
+---
+description: Laravel and PHP conventions
+globs: backend/**/*.php
+alwaysApply: false
+---
+
+# Laravel backend
+
+- Use the current stable Laravel version and PHP 8.3 or newer.
+- Prefer the flow: Route → FormRequest → Controller → optional Action/Service → Model → Resource.
+- Keep controllers thin: authorize, orchestrate, and return an explicit response.
+- Use FormRequest for authorization, normalization, and validation; persist only validated data.
+- Use API Resources as the public JSON contract.
+- Add an Action or Service only for a complete use case, transaction, or reusable non-trivial rule.
+- Prefer `final` application classes, constructor property promotion, readonly dependencies, and explicit return types.
+- Use Policies for authorization; do not add global permission helpers.
+- Models must not read HTTP request state.
+- Use Query Builder bindings; never interpolate input into SQL.
+- Wrap multi-step writes in `DB::transaction()`.
+- Keep observers thin; use events, listeners, or jobs for heavy side effects.
+- Return the current Resource after create/update and explicit HTTP 204 after delete.
+- Use anonymous migrations with typed `up(): void` and `down(): void`.
+- Use factory states for meaningful domain variants.
+- Format with Laravel Pint and analyze with PHPStan.

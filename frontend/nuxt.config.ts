@@ -1,0 +1,16 @@
+// https://nuxt.com/docs/api/configuration/nuxt-config
+export default defineNuxtConfig({
+    compatibilityDate: '2025-07-15',
+    css: ['~/assets/styles/main.scss'],
+    devtools: { enabled: true },
+    modules: ['@nuxt/eslint'],
+    runtimeConfig: {
+        public: {
+            apiBaseUrl: 'http://localhost:8000/api',
+        },
+    },
+    typescript: {
+        strict: true,
+        typeCheck: true,
+    },
+})
