@@ -1,4 +1,4 @@
-.PHONY: up down build logs backend-shell frontend-shell migrate lint test check
+.PHONY: up down build logs backend-shell frontend-shell migrate seed lint test check
 
 up:
 	docker compose up -d --build
@@ -20,6 +20,9 @@ frontend-shell:
 
 migrate:
 	docker compose exec backend php artisan migrate
+
+seed:
+	docker compose exec backend php artisan db:seed
 
 lint:
 	docker compose exec -T frontend npm run lint

@@ -30,14 +30,16 @@
    make up
    ```
 
-3. Создайте ключ приложения и выполните миграции:
+3. Создайте ключ приложения, выполните миграции и создайте локального администратора:
 
    ```bash
    docker compose exec backend php artisan key:generate
    make migrate
+   make seed
    ```
 
 Frontend доступен на `http://localhost:3000`, backend — на `http://localhost:8000`.
+Локальные admin credentials задаются в `compose.yml` и должны быть заменены для любого публичного окружения.
 
 ## Проверки
 
