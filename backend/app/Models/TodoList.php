@@ -37,12 +37,20 @@ class TodoList extends Model
 
     public function archive(): void
     {
-        $this->forceFill(['archived_at' => now()])->save();
+        if ($this->isArchived()) {
+            return;
+        }
+
+        $this->forceFill(['archived_at' => now()])->saveOrFail();
     }
 
     public function restore(): void
     {
-        $this->forceFill(['archived_at' => null])->save();
+        if (! $this->isArchived()) {
+            return;
+        }
+
+        $this->forceFill(['archived_at' => null])->saveOrFail();
     }
 
     public function isArchived(): bool

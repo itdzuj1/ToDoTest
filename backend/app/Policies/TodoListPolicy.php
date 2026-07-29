@@ -14,7 +14,14 @@ final class TodoListPolicy
             return true;
         }
 
-        return $actor->isBlocked() ? false : null;
+        if (! $actor->isBlocked()) {
+            return null;
+        }
+
+        return match ($ability) {
+            'viewAny', 'view' => null,
+            default => false,
+        };
     }
 
     public function viewAny(User $user): bool
@@ -34,10 +41,15 @@ final class TodoListPolicy
 
     public function update(User $user, TodoList $todoList): bool
     {
+        return $todoList->user_id === $user->id && ! $todoList->isArchived();
+    }
+
+    public function archive(User $user, TodoList $todoList): bool
+    {
         return $todoList->user_id === $user->id;
     }
 
-    public function delete(User $user, TodoList $todoList): bool
+    public function restore(User $user, TodoList $todoList): bool
     {
         return $todoList->user_id === $user->id;
     }
