@@ -14,7 +14,11 @@ final class TagPolicy
             return true;
         }
 
-        return $actor->isBlocked() ? false : null;
+        if ($actor->isBlocked() && ! in_array($ability, ['viewAny', 'view'], true)) {
+            return false;
+        }
+
+        return null;
     }
 
     public function viewAny(User $user): bool
