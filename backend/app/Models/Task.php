@@ -45,7 +45,7 @@ class Task extends Model
         $this->forceFill([
             'status' => $status,
             'completed_at' => $status->is(TaskStatus::Done) ? ($this->completed_at ?? now()) : null,
-        ])->save();
+        ])->saveOrFail();
     }
 
     public function isOverdue(): bool
