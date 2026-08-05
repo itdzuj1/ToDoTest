@@ -51,11 +51,19 @@ class User extends Model
 
     public function block(): void
     {
-        $this->forceFill(['blocked_at' => now()])->save();
+        if ($this->isBlocked()) {
+            return;
+        }
+
+        $this->forceFill(['blocked_at' => now()])->saveOrFail();
     }
 
     public function unblock(): void
     {
-        $this->forceFill(['blocked_at' => null])->save();
+        if (! $this->isBlocked()) {
+            return;
+        }
+
+        $this->forceFill(['blocked_at' => null])->saveOrFail();
     }
 }

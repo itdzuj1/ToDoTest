@@ -79,6 +79,81 @@
 
 Завершает сессию, инвалидирует session id, обновляет CSRF-токен и возвращает HTTP 204.
 
+## Административное управление
+
+Все endpoint-ы ниже требуют активную admin-сессию. Без сессии возвращается HTTP 401.
+Администратор может изменять задачи архивных списков и профилей с `is_blocked: true`.
+Полный CRUD пользователей и списков в первую версию не входит.
+
+### `GET /api/admin/dashboard`
+
+Возвращает агрегаты:
+
+```json
+{
+    "data": {
+        "users_count": 12,
+        "active_lists_count": 20,
+        "archived_lists_count": 3,
+        "tasks_count": 140,
+        "overdue_tasks_count": 7
+    }
+}
+```
+
+`overdue_tasks_count` считает незавершённые задачи со сроком в прошлом.
+
+### `GET /api/admin/users`
+
+Пагинированная коллекция `UserResource` без вложенных списков. Query-параметры:
+
+- `search` — опциональный поиск без учёта регистра по `name` / `normalized_name`;
+- `filter=active|blocked|all`, по умолчанию `all`;
+- `per_page` — от 1 до 100, по умолчанию 20;
+- `page` — номер страницы.
+
+Сортировка: `normalized_name`, затем `id`.
+
+### `GET /api/admin/users/{user}`
+
+Возвращает `UserResource` с загруженными `todo_lists` без вложенных задач. Списки
+упорядочены по `id`. Неизвестный ID возвращает HTTP 404.
+
+### `PATCH /api/admin/users/{user}/block`
+
+Блокирует профиль идемпотентно и возвращает `UserResource`.
+
+### `PATCH /api/admin/users/{user}/unblock`
+
+Разблокирует профиль идемпотентно и возвращает `UserResource`.
+
+### `PATCH /api/admin/todo-lists/{todoList}/archive`
+
+Архивирует список идемпотентно и возвращает `TodoListResource`.
+
+### `PATCH /api/admin/todo-lists/{todoList}/restore`
+
+Восстанавливает список идемпотентно и возвращает `TodoListResource`.
+
+### `GET /api/admin/todo-lists/{todoList}/tasks`
+
+Пагинированная коллекция задач списка с тегами. Query-параметры и семантика совпадают с
+публичным `GET /api/users/{user}/todo-lists/{todoList}/tasks`: `search`, `status`,
+`priority`, `tag_id`, `due`, `sort`, `direction`, `per_page`, `page`.
+`tag_id` должен принадлежать владельцу списка.
+
+### `PATCH /api/admin/tasks/{task}`
+
+Частично обновляет задачу. Поля как у публичного update: `title`, `description`, `status`,
+`priority`, `due_at`, `tag_ids`. `status` согласует `completed_at` через доменный метод.
+`tag_ids` полностью заменяет набор тегов; все ID должны принадлежать владельцу списка задачи.
+Работает для архивных списков и заблокированных профилей. Поля вне контракта игнорируются.
+
+### `DELETE /api/admin/tasks/{task}`
+
+Безвозвратно удаляет задачу и возвращает HTTP 204. Подтверждение удаления выполняется на
+клиенте.
+
 ## Демо-профили
 
 Профили публичны и не являются механизмом авторизации.
