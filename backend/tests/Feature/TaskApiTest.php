@@ -368,3 +368,223 @@ it('rejects unknown and another profiles tags without changing the task', functi
             ->and($task->tags()->pluck('tags.id')->all())->toBe([$existingTag->id]);
     }
 });
+
+it('paginates tasks and uses descending creation order by default', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $tasks = collect([
+        Task::factory()->for($todoList)->create(['created_at' => now()->subDays(3)]),
+        Task::factory()->for($todoList)->create(['created_at' => now()->subDays(2)]),
+        Task::factory()->for($todoList)->create(['created_at' => now()->subDay()]),
+        Task::factory()->for($todoList)->create(['created_at' => now()]),
+    ]);
+
+    $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks?per_page=2&page=2",
+    )
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.id', $tasks[1]->id)
+        ->assertJsonPath('data.1.id', $tasks[0]->id)
+        ->assertJsonPath('meta.current_page', 2)
+        ->assertJsonPath('meta.per_page', 2)
+        ->assertJsonPath('meta.total', 4);
+});
+
+it('searches task titles and descriptions without regard to case', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $titleMatch = Task::factory()->for($todoList)->create([
+        'title' => 'Prepare REPORT',
+        'description' => null,
+    ]);
+    $descriptionMatch = Task::factory()->for($todoList)->create([
+        'title' => 'Send email',
+        'description' => 'Attach the Report document',
+    ]);
+    Task::factory()->for($todoList)->create([
+        'title' => 'Buy groceries',
+        'description' => 'Milk and bread',
+    ]);
+
+    $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks?search=report",
+    )
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonFragment(['id' => $titleMatch->id])
+        ->assertJsonFragment(['id' => $descriptionMatch->id]);
+});
+
+it('filters tasks by status and priority', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $matchingTask = Task::factory()->for($todoList)->create([
+        'status' => TaskStatus::InProgress,
+        'priority' => TaskPriority::High,
+    ]);
+    Task::factory()->for($todoList)->create([
+        'status' => TaskStatus::Todo,
+        'priority' => TaskPriority::High,
+    ]);
+    Task::factory()->for($todoList)->create([
+        'status' => TaskStatus::InProgress,
+        'priority' => TaskPriority::Low,
+    ]);
+
+    $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks"
+        .'?status=in_progress&priority=high',
+    )
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $matchingTask->id);
+});
+
+it('filters tasks by a profile tag', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $tag = Tag::factory()->for($user)->create();
+    $matchingTask = Task::factory()->for($todoList)->create();
+    $matchingTask->tags()->attach($tag);
+    Task::factory()->for($todoList)->create();
+
+    $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks?tag_id={$tag->id}",
+    )
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $matchingTask->id);
+});
+
+it('filters tasks by due date category', function () {
+    $this->travelTo('2026-08-05 12:00:00');
+
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $overdueTask = Task::factory()->for($todoList)->create([
+        'status' => TaskStatus::Todo,
+        'due_at' => now()->subHour(),
+    ]);
+    $completedTodayTask = Task::factory()->for($todoList)->done()->create([
+        'due_at' => now()->subHour(),
+    ]);
+    $todayTask = Task::factory()->for($todoList)->create([
+        'due_at' => now()->addHour(),
+    ]);
+    $upcomingTask = Task::factory()->for($todoList)->create([
+        'due_at' => now()->addDay(),
+    ]);
+    $withoutDueDate = Task::factory()->for($todoList)->create([
+        'due_at' => null,
+    ]);
+    $url = "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks";
+
+    $this->getJson("{$url}?due=overdue")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $overdueTask->id);
+
+    $this->getJson("{$url}?due=today")
+        ->assertOk()
+        ->assertJsonCount(3, 'data')
+        ->assertJsonFragment(['id' => $overdueTask->id])
+        ->assertJsonFragment(['id' => $completedTodayTask->id])
+        ->assertJsonFragment(['id' => $todayTask->id]);
+
+    $this->getJson("{$url}?due=upcoming")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $upcomingTask->id);
+
+    $this->getJson("{$url}?due=none")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $withoutDueDate->id);
+});
+
+it('sorts due dates with null values last in either direction', function (
+    string $direction,
+    array $expectedIndexes,
+) {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $tasks = collect([
+        Task::factory()->for($todoList)->create(['due_at' => now()->addDay()]),
+        Task::factory()->for($todoList)->create(['due_at' => now()->addDays(2)]),
+        Task::factory()->for($todoList)->create(['due_at' => null]),
+    ]);
+
+    $response = $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks"
+        ."?sort=due_at&direction={$direction}",
+    )->assertOk();
+
+    foreach ($expectedIndexes as $position => $taskIndex) {
+        $response->assertJsonPath("data.{$position}.id", $tasks[$taskIndex]->id);
+    }
+})->with([
+    'ascending' => ['asc', [0, 1, 2]],
+    'descending' => ['desc', [1, 0, 2]],
+]);
+
+it('sorts priorities in domain order', function (
+    string $direction,
+    array $expectedIndexes,
+) {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $tasks = collect([
+        Task::factory()->for($todoList)->create(['priority' => TaskPriority::Low]),
+        Task::factory()->for($todoList)->create(['priority' => TaskPriority::Medium]),
+        Task::factory()->for($todoList)->create(['priority' => TaskPriority::High]),
+    ]);
+
+    $response = $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks"
+        ."?sort=priority&direction={$direction}",
+    )->assertOk();
+
+    foreach ($expectedIndexes as $position => $taskIndex) {
+        $response->assertJsonPath("data.{$position}.id", $tasks[$taskIndex]->id);
+    }
+})->with([
+    'ascending' => ['asc', [0, 1, 2]],
+    'descending' => ['desc', [2, 1, 0]],
+]);
+
+it('validates task list query parameters', function (string $query, string $field) {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+
+    $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks?{$query}",
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors($field);
+})->with([
+    'search is not a string' => ['search[]=term', 'search'],
+    'search is too long' => ['search='.str_repeat('a', 121), 'search'],
+    'unknown status' => ['status=closed', 'status'],
+    'unknown priority' => ['priority=urgent', 'priority'],
+    'tag is not an integer' => ['tag_id=tag', 'tag_id'],
+    'tag does not exist' => ['tag_id=999999', 'tag_id'],
+    'unknown due category' => ['due=week', 'due'],
+    'unknown sort' => ['sort=title', 'sort'],
+    'unknown direction' => ['direction=sideways', 'direction'],
+    'per page is too small' => ['per_page=0', 'per_page'],
+    'per page is too large' => ['per_page=101', 'per_page'],
+    'page is too small' => ['page=0', 'page'],
+]);
+
+it('rejects a tag filter owned by another profile', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $foreignTag = Tag::factory()->create();
+
+    $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks?tag_id={$foreignTag->id}",
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('tag_id');
+});

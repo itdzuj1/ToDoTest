@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
+use App\Http\Requests\ListTasksRequest;
 use App\Http\Requests\StoreTaskRequest;
 use App\Http\Requests\UpdateTaskRequest;
 use App\Http\Resources\TaskResource;
 use App\Models\Task;
 use App\Models\TodoList;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -19,14 +21,76 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 final class TaskController extends Controller
 {
-    public function index(User $user, TodoList $todoList): AnonymousResourceCollection
-    {
-        Gate::forUser($user)->authorize('viewAny', Task::class);
+    public function index(
+        ListTasksRequest $request,
+        User $user,
+        TodoList $todoList,
+    ): AnonymousResourceCollection {
+        $query = $todoList->tasks()->with('tags');
+        $search = $request->search();
 
-        $tasks = $todoList->tasks()
-            ->with('tags')
-            ->latest('id')
-            ->get();
+        if ($search !== null) {
+            $query->where(fn (Builder $query) => $query
+                ->whereLike('title', "%{$search}%")
+                ->orWhereLike('description', "%{$search}%"));
+        }
+
+        $status = $request->status();
+
+        if ($status !== null) {
+            $query->where('status', $status);
+        }
+
+        $priority = $request->priority();
+
+        if ($priority !== null) {
+            $query->where('priority', $priority);
+        }
+
+        $tagId = $request->tagId();
+
+        if ($tagId !== null) {
+            $query->whereRelation('tags', 'tags.id', $tagId);
+        }
+
+        $due = $request->due();
+        $now = now();
+
+        if ($due === 'overdue') {
+            $query
+                ->whereNotNull('due_at')
+                ->where('due_at', '<', $now)
+                ->where('status', '!=', TaskStatus::Done);
+        } elseif ($due === 'today') {
+            $query->whereBetween('due_at', [
+                $now->copy()->startOfDay(),
+                $now->copy()->endOfDay(),
+            ]);
+        } elseif ($due === 'upcoming') {
+            $query->where('due_at', '>', $now->copy()->endOfDay());
+        } elseif ($due === 'none') {
+            $query->whereNull('due_at');
+        }
+
+        $direction = $request->direction();
+        $sort = $request->sort();
+
+        if ($sort === 'due_at') {
+            $query
+                ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END ASC')
+                ->orderBy('due_at', $direction);
+        } elseif ($sort === 'priority') {
+            $query->orderByRaw($direction === 'asc'
+                ? "CASE priority WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 ELSE 4 END ASC"
+                : "CASE priority WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 ELSE 0 END DESC");
+        } else {
+            $query->orderBy('created_at', $direction);
+        }
+
+        $tasks = $query
+            ->orderBy('id', $direction)
+            ->paginate($request->perPage())
+            ->withQueryString();
 
         return TaskResource::collection($tasks);
     }
