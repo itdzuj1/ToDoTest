@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\TodoListController as AdminTodoListController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
-use App\Http\Controllers\AdminAuthController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => response()->json([
@@ -12,14 +12,14 @@ Route::get('/', fn () => response()->json([
 ]));
 
 Route::prefix('api/admin')->name('api.admin.')->group(function (): void {
-    Route::get('csrf-cookie', [AdminAuthController::class, 'csrfCookie'])->name('csrf-cookie');
-    Route::post('login', [AdminAuthController::class, 'login'])
+    Route::get('csrf-cookie', [AuthController::class, 'csrfCookie'])->name('csrf-cookie');
+    Route::post('login', [AuthController::class, 'login'])
         ->middleware('throttle:admin-login')
         ->name('login');
 
     Route::middleware('auth:admin')->group(function (): void {
-        Route::get('session', [AdminAuthController::class, 'show'])->name('session.show');
-        Route::delete('session', [AdminAuthController::class, 'logout'])->name('session.destroy');
+        Route::get('session', [AuthController::class, 'show'])->name('session.show');
+        Route::delete('session', [AuthController::class, 'logout'])->name('session.destroy');
         Route::get('dashboard', [DashboardController::class, 'show'])->name('dashboard.show');
         Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
         Route::get('users/{user}', [AdminUserController::class, 'show'])->name('users.show');

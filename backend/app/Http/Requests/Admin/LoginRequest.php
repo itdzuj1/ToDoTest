@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 
-final class AdminLoginRequest extends FormRequest
+final class LoginRequest extends FormRequest
 {
     public function authorize(): bool
     {

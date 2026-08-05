@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
-use App\Http\Requests\AdminLoginRequest;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\LoginRequest;
 use App\Http\Resources\AdminResource;
 use App\Models\Admin;
 use Illuminate\Http\Request;
@@ -11,14 +12,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
-final class AdminAuthController extends Controller
+final class AuthController extends Controller
 {
     public function csrfCookie(): Response
     {
         return response()->noContent();
     }
 
-    public function login(AdminLoginRequest $request): AdminResource
+    public function login(LoginRequest $request): AdminResource
     {
         $authenticated = Auth::guard('admin')->attempt(
             [
