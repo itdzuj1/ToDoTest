@@ -261,3 +261,110 @@ it('does not resolve a todo list through another profile for task endpoints', fu
     $this->getJson("/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks")
         ->assertNotFound();
 });
+
+it('assigns profile tags when creating a task', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $tags = Tag::factory()->for($user)->count(2)->create();
+
+    $response = $this->postJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks",
+        [
+            'title' => 'Задача с тегами',
+            'tag_ids' => $tags->modelKeys(),
+        ],
+    )
+        ->assertCreated()
+        ->assertJsonCount(2, 'data.tags')
+        ->assertJsonFragment(['id' => $tags[0]->id])
+        ->assertJsonFragment(['id' => $tags[1]->id]);
+
+    $taskId = $response->json('data.id');
+
+    foreach ($tags as $tag) {
+        $this->assertDatabaseHas('task_tag', [
+            'task_id' => $taskId,
+            'tag_id' => $tag->id,
+        ]);
+    }
+});
+
+it('replaces preserves and clears task tags according to tag_ids presence', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $task = Task::factory()->for($todoList)->create();
+    $tags = Tag::factory()->for($user)->count(3)->create();
+    $task->tags()->attach([$tags[0]->id, $tags[1]->id]);
+    $url = "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks/{$task->id}";
+
+    $this->patchJson($url, [
+        'title' => 'Название без изменения тегов',
+    ])
+        ->assertOk()
+        ->assertJsonCount(2, 'data.tags');
+
+    expect($task->tags()->pluck('tags.id')->all())
+        ->toEqualCanonicalizing([$tags[0]->id, $tags[1]->id]);
+
+    $this->patchJson($url, [
+        'tag_ids' => [$tags[2]->id],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'data.tags')
+        ->assertJsonPath('data.tags.0.id', $tags[2]->id);
+
+    expect($task->tags()->pluck('tags.id')->all())->toBe([$tags[2]->id]);
+
+    $this->patchJson($url, ['tag_ids' => []])
+        ->assertOk()
+        ->assertJsonPath('data.tags', []);
+
+    $task->tags()->attach($tags[0]);
+
+    $this->patchJson($url, ['tag_ids' => null])
+        ->assertOk()
+        ->assertJsonPath('data.tags', []);
+});
+
+it('validates the tag_ids structure', function (mixed $tagIds, string $field) {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+
+    $this->postJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks",
+        [
+            'title' => 'Задача',
+            'tag_ids' => $tagIds,
+        ],
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors($field);
+})->with([
+    'non-array tag ids' => ['1,2', 'tag_ids'],
+    'non-list tag ids' => [['first' => 1], 'tag_ids'],
+    'non-integer tag id' => [['1'], 'tag_ids.0'],
+    'duplicate tag ids' => [[1, 1], 'tag_ids.1'],
+]);
+
+it('rejects unknown and another profiles tags without changing the task', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $task = Task::factory()->for($todoList)->create(['title' => 'Исходная задача']);
+    $existingTag = Tag::factory()->for($user)->create();
+    $task->tags()->attach($existingTag);
+
+    foreach ([999999, Tag::factory()->create()->id] as $invalidTagId) {
+        $this->patchJson(
+            "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks/{$task->id}",
+            [
+                'title' => 'Не должно сохраниться',
+                'tag_ids' => [$invalidTagId],
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('tag_ids.0');
+
+        expect($task->fresh()->title)->toBe('Исходная задача')
+            ->and($task->tags()->pluck('tags.id')->all())->toBe([$existingTag->id]);
+    }
+});

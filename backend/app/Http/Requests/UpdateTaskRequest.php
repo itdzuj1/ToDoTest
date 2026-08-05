@@ -4,10 +4,12 @@ namespace App\Http\Requests;
 
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
+use App\Models\Tag;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -41,6 +43,14 @@ final class UpdateTaskRequest extends FormRequest
                 'date',
                 'regex:/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/',
             ],
+            'tag_ids' => ['sometimes', 'nullable', 'array', 'list'],
+            'tag_ids.*' => [
+                'integer',
+                'distinct:strict',
+                Rule::exists(Tag::class, 'id')->where(
+                    fn (Builder $query) => $query->where('user_id', $this->routeUserId()),
+                ),
+            ],
         ];
     }
 
@@ -65,6 +75,27 @@ final class UpdateTaskRequest extends FormRequest
         return is_string($dueAt) ? CarbonImmutable::parse($dueAt)->utc() : null;
     }
 
+    /**
+     * @return list<int>|null
+     */
+    public function tagIds(): ?array
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists('tag_ids', $validated)) {
+            return null;
+        }
+
+        if (! is_array($validated['tag_ids'])) {
+            return [];
+        }
+
+        return array_values(array_map(
+            fn (mixed $tagId): int => (int) $tagId,
+            $validated['tag_ids'],
+        ));
+    }
+
     protected function prepareForValidation(): void
     {
         $title = $this->input('title');
@@ -76,5 +107,12 @@ final class UpdateTaskRequest extends FormRequest
         $this->merge([
             'title' => Str::squish($title),
         ]);
+    }
+
+    private function routeUserId(): int
+    {
+        $user = $this->route('user');
+
+        return $user instanceof User ? $user->id : 0;
     }
 }

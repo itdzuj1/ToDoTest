@@ -38,7 +38,7 @@ final class TaskController extends Controller
     ): JsonResponse {
         $task = DB::transaction(function () use ($request, $todoList): Task {
             $attributes = $request->validated();
-            unset($attributes['status'], $attributes['priority']);
+            unset($attributes['status'], $attributes['priority'], $attributes['tag_ids']);
 
             if (array_key_exists('due_at', $attributes)) {
                 $attributes['due_at'] = $request->dueAt();
@@ -47,6 +47,12 @@ final class TaskController extends Controller
             $attributes['priority'] = $request->priority() ?? TaskPriority::Medium;
             $task = $todoList->tasks()->create($attributes);
             $task->changeStatus($request->status() ?? TaskStatus::Todo);
+
+            $tagIds = $request->tagIds();
+
+            if ($tagIds !== null) {
+                $task->tags()->sync($tagIds);
+            }
 
             return $task;
         });
@@ -71,7 +77,7 @@ final class TaskController extends Controller
     ): TaskResource {
         DB::transaction(function () use ($request, $task): void {
             $attributes = $request->validated();
-            unset($attributes['status'], $attributes['priority']);
+            unset($attributes['status'], $attributes['priority'], $attributes['tag_ids']);
 
             if (array_key_exists('due_at', $attributes)) {
                 $attributes['due_at'] = $request->dueAt();
@@ -88,11 +94,15 @@ final class TaskController extends Controller
 
             if ($status !== null) {
                 $task->changeStatus($status);
-
-                return;
+            } else {
+                $task->saveOrFail();
             }
 
-            $task->saveOrFail();
+            $tagIds = $request->tagIds();
+
+            if ($tagIds !== null) {
+                $task->tags()->sync($tagIds);
+            }
         });
 
         return new TaskResource($task->load('tags'));
