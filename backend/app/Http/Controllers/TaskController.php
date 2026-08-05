@@ -76,12 +76,12 @@ final class TaskController extends Controller
         $sort = $request->sort();
 
         if ($sort === 'due_at') {
-            //можно вынести из index в private-методы 
+            // можно вынести из index в private-методы
             $query
                 ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END ASC')
                 ->orderBy('due_at', $direction);
         } elseif ($sort === 'priority') {
-            //можно вынести из index в private-методы 
+            // можно вынести из index в private-методы
             $query->orderByRaw($direction === 'asc'
                 ? "CASE priority WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 ELSE 4 END ASC"
                 : "CASE priority WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 ELSE 0 END DESC");
