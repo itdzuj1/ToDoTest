@@ -183,9 +183,14 @@ it('validates task fields when updating', function (array $payload, string $fiel
 })->with([
     'blank title' => [['title' => '   '], 'title'],
     'null title' => [['title' => null], 'title'],
+    'non-string title' => [['title' => ['Задача']], 'title'],
+    'title over 120 characters' => [['title' => str_repeat('a', 121)], 'title'],
+    'non-string description' => [['description' => []], 'description'],
+    'description over 5000 characters' => [['description' => str_repeat('a', 5001)], 'description'],
     'invalid status' => [['status' => 'closed'], 'status'],
     'invalid priority' => [['priority' => 'urgent'], 'priority'],
     'invalid due date' => [['due_at' => '2030-08-10'], 'due_at'],
+    'due date without timezone' => [['due_at' => '2030-08-10T12:00:00'], 'due_at'],
 ]);
 
 it('keeps blocked profiles tasks read-only', function () {
@@ -587,4 +592,200 @@ it('rejects a tag filter owned by another profile', function () {
     )
         ->assertUnprocessable()
         ->assertJsonValidationErrors('tag_id');
+});
+
+it('rejects invalid tags when creating without persisting the task', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $foreignTag = Tag::factory()->create();
+    $url = "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks";
+
+    foreach ([999999, $foreignTag->id] as $invalidTagId) {
+        $this->postJson($url, [
+            'title' => 'Не должна сохраниться',
+            'tag_ids' => [$invalidTagId],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('tag_ids.0');
+    }
+
+    $this->assertDatabaseMissing('tasks', [
+        'todo_list_id' => $todoList->id,
+        'title' => 'Не должна сохраниться',
+    ]);
+});
+
+it('does not mutate tasks through another profiles todo list', function (
+    string $method,
+    array $payload,
+) {
+    $user = User::factory()->create();
+    $foreignList = TodoList::factory()->create();
+    $foreignTask = Task::factory()->for($foreignList)->create();
+    $suffix = $method === 'POST' ? '' : "/{$foreignTask->id}";
+
+    $this->json(
+        $method,
+        "/api/users/{$user->id}/todo-lists/{$foreignList->id}/tasks{$suffix}",
+        $payload,
+    )->assertNotFound();
+
+    expect($foreignTask->fresh())->not->toBeNull()
+        ->and($foreignList->tasks()->count())->toBe(1);
+})->with([
+    'create' => ['POST', ['title' => 'Чужая задача']],
+    'update' => ['PATCH', ['title' => 'Изменение']],
+    'delete' => ['DELETE', []],
+]);
+
+it('deletes task tag assignments with the task', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $task = Task::factory()->for($todoList)->create();
+    $tag = Tag::factory()->for($user)->create();
+    $task->tags()->attach($tag);
+
+    $this->deleteJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks/{$task->id}",
+    )->assertNoContent();
+
+    $this->assertDatabaseMissing('tasks', ['id' => $task->id]);
+    $this->assertDatabaseMissing('task_tag', [
+        'task_id' => $task->id,
+        'tag_id' => $tag->id,
+    ]);
+});
+
+it('clears a due date and ignores fields outside the update contract', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $otherList = TodoList::factory()->for($user)->create();
+    $task = Task::factory()->for($todoList)->create([
+        'status' => TaskStatus::Todo,
+        'due_at' => now()->addDay(),
+        'completed_at' => null,
+    ]);
+
+    $this->patchJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks/{$task->id}",
+        [
+            'due_at' => null,
+            'todo_list_id' => $otherList->id,
+            'completed_at' => now()->toISOString(),
+        ],
+    )
+        ->assertOk()
+        ->assertJsonPath('data.todo_list_id', $todoList->id)
+        ->assertJsonPath('data.due_at', null)
+        ->assertJsonPath('data.completed_at', null);
+
+    $this->assertDatabaseHas('tasks', [
+        'id' => $task->id,
+        'todo_list_id' => $todoList->id,
+        'due_at' => null,
+        'completed_at' => null,
+    ]);
+});
+
+it('validates the tag_ids structure when updating', function (mixed $tagIds, string $field) {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $task = Task::factory()->for($todoList)->create();
+
+    $this->patchJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks/{$task->id}",
+        ['tag_ids' => $tagIds],
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors($field);
+})->with([
+    'non-array tag ids' => ['1,2', 'tag_ids'],
+    'non-list tag ids' => [['first' => 1], 'tag_ids'],
+    'non-integer tag id' => [['1'], 'tag_ids.0'],
+    'duplicate tag ids' => [[1, 1], 'tag_ids.1'],
+]);
+
+it('uses twenty tasks per page by default', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    Task::factory()->for($todoList)->count(21)->create();
+
+    $this->getJson("/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks")
+        ->assertOk()
+        ->assertJsonCount(20, 'data')
+        ->assertJsonPath('meta.per_page', 20)
+        ->assertJsonPath('meta.total', 21)
+        ->assertJsonPath('meta.last_page', 2);
+});
+
+it('applies status and priority filters independently', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $todoHigh = Task::factory()->for($todoList)->create([
+        'status' => TaskStatus::Todo,
+        'priority' => TaskPriority::High,
+    ]);
+    $todoLow = Task::factory()->for($todoList)->create([
+        'status' => TaskStatus::Todo,
+        'priority' => TaskPriority::Low,
+    ]);
+    $doneHigh = Task::factory()->for($todoList)->done()->create([
+        'priority' => TaskPriority::High,
+    ]);
+    $url = "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks";
+
+    $this->getJson("{$url}?status=todo")
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonFragment(['id' => $todoHigh->id])
+        ->assertJsonFragment(['id' => $todoLow->id]);
+
+    $this->getJson("{$url}?priority=high")
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonFragment(['id' => $todoHigh->id])
+        ->assertJsonFragment(['id' => $doneHigh->id]);
+});
+
+it('uses id as the creation sort tiebreaker', function (
+    string $direction,
+    array $expectedIndexes,
+) {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    $createdAt = now()->subDay();
+    $tasks = Task::factory()->for($todoList)->count(3)->create([
+        'created_at' => $createdAt,
+        'updated_at' => $createdAt,
+    ]);
+
+    $response = $this->getJson(
+        "/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks"
+        ."?sort=created_at&direction={$direction}",
+    )->assertOk();
+
+    foreach ($expectedIndexes as $position => $taskIndex) {
+        $response->assertJsonPath("data.{$position}.id", $tasks[$taskIndex]->id);
+    }
+})->with([
+    'ascending' => ['asc', [0, 1, 2]],
+    'descending' => ['desc', [2, 1, 0]],
+]);
+
+it('returns not found for unknown nested task ids', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+
+    $this->getJson("/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks/999999")
+        ->assertNotFound();
+});
+
+it('returns an empty paginated collection for a list without tasks', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+
+    $this->getJson("/api/users/{$user->id}/todo-lists/{$todoList->id}/tasks")
+        ->assertOk()
+        ->assertJsonPath('data', [])
+        ->assertJsonPath('meta.total', 0);
 });

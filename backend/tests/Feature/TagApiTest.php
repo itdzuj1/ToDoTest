@@ -175,3 +175,18 @@ it('deletes tag assignments without deleting tasks', function () {
         'tag_id' => $tag->id,
     ]);
 });
+
+it('returns not found for an unknown nested tag id', function () {
+    $user = User::factory()->create();
+
+    $this->getJson("/api/users/{$user->id}/tags/999999")
+        ->assertNotFound();
+});
+
+it('returns an empty collection for a profile without tags', function () {
+    $user = User::factory()->create();
+
+    $this->getJson("/api/users/{$user->id}/tags")
+        ->assertOk()
+        ->assertJsonPath('data', []);
+});
