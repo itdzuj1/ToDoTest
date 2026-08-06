@@ -52,13 +52,13 @@ final class UserController extends Controller
     {
         $user->block();
 
-        return new UserResource($user->refresh());
+        return new UserResource($user);
     }
 
     public function unblock(User $user): UserResource
     {
         $user->unblock();
 
-        return new UserResource($user->refresh());
+        return new UserResource($user);
     }
 }

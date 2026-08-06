@@ -12,13 +12,13 @@ final class TodoListController extends Controller
     {
         $todoList->archive();
 
-        return new TodoListResource($todoList->refresh());
+        return new TodoListResource($todoList);
     }
 
     public function restore(TodoList $todoList): TodoListResource
     {
         $todoList->restore();
 
-        return new TodoListResource($todoList->refresh());
+        return new TodoListResource($todoList);
     }
 }

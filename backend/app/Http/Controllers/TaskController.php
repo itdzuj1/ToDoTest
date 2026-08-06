@@ -72,11 +72,13 @@ final class TaskController extends Controller
             $query->whereNull('due_at');
         }
 
+        // заменить на скоупы + when все выше. Ниже можно не трогать
+
         $direction = $request->direction();
         $sort = $request->sort();
 
         if ($sort === 'due_at') {
-            // можно вынести из index в private-методы
+            // можно вынести из index в private-методы  (разобрать trait в новижен)
             $query
                 ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END ASC')
                 ->orderBy('due_at', $direction);
