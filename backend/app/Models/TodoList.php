@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\TaskStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\TodoListFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,6 +35,18 @@ class TodoList extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
+    }
+
+    /**
+     * @return array<int|string, string|callable(Builder): Builder>
+     */
+    public static function resourceCountRelations(): array
+    {
+        return [
+            'tasks',
+            'tasks as completed_tasks_count' => fn (Builder $query) => $query
+                ->where('status', TaskStatus::Done),
+        ];
     }
 
     public function archive(): void

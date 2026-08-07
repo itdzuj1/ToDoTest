@@ -1,0 +1,31 @@
+---
+description: Обязательные состояния экранов, доменные правила и accessibility
+globs: ["pages/**", "components/**"]
+alwaysApply: false
+---
+
+# Состояния
+
+Для каждого экрана и запроса реализуются: initial, loading, success, empty, error, disabled, submitting, deleting, read-only, archived, blocked.
+
+- loading — skeleton, геометрия не «прыгает»
+- error — сообщение с кодом + «Повторить»; «тихие» ошибки запрещены
+- submitting — спиннер в кнопке, поля disabled, повторный submit невозможен
+- read-only / archived — контролы остаются видимыми, но disabled + замок и одна поясняющая полоса
+
+## Доменные правила
+1. Заблокированный профиль доступен для чтения, мутации отключены.
+2. Архивный список доступен для чтения; его задачи изменять нельзя.
+3. Администратор управляет задачами независимо от blocked и archived.
+4. Удаление задачи — только после явного подтверждения.
+5. Ошибки валидации привязаны к конкретному полю.
+
+# Accessibility (WCAG AA)
+- контраст текста ≥ 4.5:1
+- `:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px }` — не снимать
+- таблицы: `th[scope]`, `aria-sort`, скрытый caption
+- клавиатура для tabs (roving tabindex, ← → Home End), меню, dropdown, dialog
+- sheets/modals: `role="dialog" aria-modal`, focus trap, возврат фокуса, scroll lock
+- строгая иерархия заголовков, один h1 на страницу
+- ошибки полей: `aria-invalid` + `aria-describedby`; тосты в `aria-live`
+- тач-цели ≥ 44px на мобильных

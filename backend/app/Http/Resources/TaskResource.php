@@ -24,6 +24,18 @@ final class TaskResource extends JsonResource
             'due_at' => $this->due_at?->toISOString(),
             'completed_at' => $this->completed_at?->toISOString(),
             'is_overdue' => $this->isOverdue(),
+            'is_list_archived' => $this->when(
+                $this->relationLoaded('todoList'),
+                fn (): bool => $this->todoList->isArchived(),
+            ),
+            'user_id' => $this->when(
+                $this->relationLoaded('todoList'),
+                fn (): int => $this->todoList->user_id,
+            ),
+            'user_name' => $this->when(
+                $this->relationLoaded('todoList') && $this->todoList->relationLoaded('user'),
+                fn (): string => $this->todoList->user->name,
+            ),
             'tags' => TagResource::collection($this->whenLoaded('tags')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

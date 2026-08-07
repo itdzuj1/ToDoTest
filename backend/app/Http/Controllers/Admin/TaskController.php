@@ -2,50 +2,112 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ListAllTasksRequest;
 use App\Http\Requests\Admin\ListTasksRequest;
 use App\Http\Requests\Admin\UpdateTaskRequest;
 use App\Http\Resources\TaskResource;
 use App\Models\Task;
 use App\Models\TodoList;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 final class TaskController extends Controller
 {
+    public function indexAll(ListAllTasksRequest $request): AnonymousResourceCollection
+    {
+        $query = Task::query()->with(['tags', 'todoList.user']);
+
+        $userId = $request->userId();
+
+        if ($userId !== null) {
+            $query->whereRelation('todoList', 'user_id', $userId);
+        }
+
+        $listArchived = $request->listArchived();
+
+        if ($listArchived === true) {
+            $query->whereHas('todoList', fn (Builder $query) => $query->whereNotNull('archived_at'));
+        } elseif ($listArchived === false) {
+            $query->whereHas('todoList', fn (Builder $query) => $query->whereNull('archived_at'));
+        }
+
+        $this->applyTaskFilters(
+            $query,
+            $request->search(),
+            $request->status(),
+            $request->priority(),
+            $request->tagId(),
+            $request->due(),
+            $request->sort(),
+            $request->direction(),
+        );
+
+        $tasks = $query
+            ->paginate($request->perPage())
+            ->withQueryString();
+
+        return TaskResource::collection($tasks);
+    }
+
     public function index(ListTasksRequest $request, TodoList $todoList): AnonymousResourceCollection
     {
         $query = $todoList->tasks()->with('tags');
-        $search = $request->search();
 
+        $this->applyTaskFilters(
+            $query,
+            $request->search(),
+            $request->status(),
+            $request->priority(),
+            $request->tagId(),
+            $request->due(),
+            $request->sort(),
+            $request->direction(),
+        );
+
+        $tasks = $query
+            ->paginate($request->perPage())
+            ->withQueryString();
+
+        return TaskResource::collection($tasks);
+    }
+
+    /**
+     * @param  Builder<Task>|Relation  $query
+     */
+    private function applyTaskFilters(
+        Builder|Relation $query,
+        ?string $search,
+        ?TaskStatus $status,
+        ?TaskPriority $priority,
+        ?int $tagId,
+        ?string $due,
+        string $sort,
+        string $direction,
+    ): void {
         if ($search !== null) {
             $query->where(fn (Builder $query) => $query
                 ->whereLike('title', "%{$search}%")
                 ->orWhereLike('description', "%{$search}%"));
         }
 
-        $status = $request->status();
-
         if ($status !== null) {
             $query->where('status', $status);
         }
-
-        $priority = $request->priority();
 
         if ($priority !== null) {
             $query->where('priority', $priority);
         }
 
-        $tagId = $request->tagId();
-
         if ($tagId !== null) {
             $query->whereRelation('tags', 'tags.id', $tagId);
         }
 
-        $due = $request->due();
         $now = now();
 
         if ($due === 'overdue') {
@@ -64,9 +126,6 @@ final class TaskController extends Controller
             $query->whereNull('due_at');
         }
 
-        $direction = $request->direction();
-        $sort = $request->sort();
-
         if ($sort === 'due_at') {
             $query
                 ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END ASC')
@@ -79,12 +138,7 @@ final class TaskController extends Controller
             $query->orderBy('created_at', $direction);
         }
 
-        $tasks = $query
-            ->orderBy('id', $direction)
-            ->paginate($request->perPage())
-            ->withQueryString();
-
-        return TaskResource::collection($tasks);
+        $query->orderBy('id', $direction);
     }
 
     public function update(UpdateTaskRequest $request, Task $task): TaskResource

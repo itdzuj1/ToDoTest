@@ -1,14 +1,37 @@
-@use '../tokens/colors';
-
+/* Тёмная тема переопределяет ТОЛЬКО значения переменных. Разметка и классы не меняются. */
 [data-theme='dark'] {
-    color-scheme: dark;
-    --color-primary: #{colors.$blue-500};
-    --color-primary-hover: #{colors.$blue-600};
-    --color-surface: #{colors.$slate-900};
-    --color-surface-muted: #{colors.$slate-700};
-    --color-text: #{colors.$slate-50};
-    --color-text-muted: #{colors.$slate-200};
-    --color-border: #{colors.$slate-500};
-    --color-danger: #{colors.$red-500};
-    --color-focus: #{colors.$blue-500};
+  --color-surface: #131417;
+  --color-surface-muted: #1a1c20;
+  --color-surface-subtle: #23262c;
+
+  --color-text: #f2f3f5;
+  --color-text-strong: #ffffff;
+  --color-text-muted: #a2a7b0;
+  --color-text-subtle: #7c828c;
+
+  --color-border: #2a2d33;
+  --color-border-strong: #3a3e46;
+
+  --color-primary: #f2f3f5;
+  --color-primary-hover: #ffffff;
+
+  --color-brand: #8a72f5;
+  --color-brand-hover: #9b86f7;
+  --color-brand-tint: #241f3d;
+  --color-brand-strong: #c3b5fb;
+
+  --color-link: #4fb0ff;
+  --color-link-hover: #7cc4ff;
+
+  --color-success-tint: #10281f;
+  --color-success-strong: #6ee7b7;
+  --color-info-tint: #0f2333;
+  --color-info-strong: #7cc4ff;
+  --color-warning-tint: #2c2110;
+  --color-warning-strong: #fcd34d;
+  --color-danger-tint: #2e1513;
+  --color-danger-strong: #fca5a5;
+
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-sidebar-bg: #0d0e10;
 }

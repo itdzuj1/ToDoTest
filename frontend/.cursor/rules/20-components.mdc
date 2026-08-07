@@ -1,0 +1,41 @@
+---
+description: Именование и контракты компонентов Ui*/El*/Pt*/Tm*
+globs: ["components/**", "**/*.vue"]
+alwaysApply: false
+---
+
+# Компоненты
+
+Файлы — PascalCase (`UiButton.vue`, `PtTable.vue`), в шаблонах — kebab-case (`<ui-button />`).
+
+- `Ui*` — визуальные примитивы, ноль знаний о домене и API
+- `El*` — composed-элементы форм и a11y-обвязка
+- `Pt*` — переиспользуемые паттерны, знают доменные типы, но не эндпоинты
+- `Tm*` — крупные блоки, layouts и sheets, владеют своим состоянием
+- `Feature*` — только для действительно изолированной domain feature
+
+Каждый компонент проектируется через props, emits, slots, typed configuration, controlled state и явные loading/error состояния.
+
+## PtTable
+```ts
+interface TableColumn<Row> {
+  field: string
+  header: string
+  sortable?: boolean
+  align?: 'left' | 'center' | 'right'
+  value?: (row: Row) => unknown
+  format?: (value: unknown, row: Row) => string
+}
+```
+Поддерживает: typed columns, сортировку, пагинацию, loading, empty, row actions, слоты `cell:<field>`, мобильное представление карточками.
+
+## PtFilter
+input, select, multi-select, date, button-group, debounce, синхронизация с query, reset, сводка активных фильтров.
+
+## PtTabs
+model-backed и route-backed режимы, active/disabled, горизонтальный overflow на мобильном.
+
+## UiSheet / UiModal
+`v-model`, overlay, Esc, клик вне панели, слоты header/content/footer, confirm/cancel, вложенные панели, адаптивная ширина, focus trap, возврат фокуса на trigger, блокировка scroll body.
+
+Полные сигнатуры — в `docs/components.md` пакета хендоффа.

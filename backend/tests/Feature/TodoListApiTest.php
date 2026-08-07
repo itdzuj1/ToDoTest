@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Task;
 use App\Models\TodoList;
 use App\Models\User;
 
@@ -12,7 +13,9 @@ it('creates a todo list for the selected profile', function () {
         ->assertCreated()
         ->assertJsonPath('data.user_id', $user->id)
         ->assertJsonPath('data.title', 'Рабочие задачи')
-        ->assertJsonPath('data.is_archived', false);
+        ->assertJsonPath('data.is_archived', false)
+        ->assertJsonPath('data.tasks_count', 0)
+        ->assertJsonPath('data.completed_tasks_count', 0);
 
     $this->assertDatabaseHas('todo_lists', [
         'user_id' => $user->id,
@@ -113,6 +116,23 @@ it('keeps archive and restore transitions idempotent', function () {
 
     expect($restoreRetry->archived_at)->toBeNull()
         ->and($restoreRetry->updated_at->equalTo($restoredList->updated_at))->toBeTrue();
+});
+
+it('includes task counts on todo list responses', function () {
+    $user = User::factory()->create();
+    $todoList = TodoList::factory()->for($user)->create();
+    Task::factory()->for($todoList)->count(2)->create();
+    Task::factory()->for($todoList)->done()->create();
+
+    $this->getJson("/api/users/{$user->id}/todo-lists")
+        ->assertOk()
+        ->assertJsonPath('data.0.tasks_count', 3)
+        ->assertJsonPath('data.0.completed_tasks_count', 1);
+
+    $this->getJson("/api/users/{$user->id}/todo-lists/{$todoList->id}")
+        ->assertOk()
+        ->assertJsonPath('data.tasks_count', 3)
+        ->assertJsonPath('data.completed_tasks_count', 1);
 });
 
 it('filters active and archived todo lists', function () {

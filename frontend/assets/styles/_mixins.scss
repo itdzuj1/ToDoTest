@@ -1,7 +1,7 @@
 @use 'tokens/breakpoints';
 
 @mixin from-md {
-    @media (min-width: breakpoints.$md) {
+    @media (min-width: breakpoints.$bp-md) {
         @content;
     }
 }

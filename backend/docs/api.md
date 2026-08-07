@@ -93,15 +93,26 @@
 {
     "data": {
         "users_count": 12,
+        "blocked_users_count": 2,
         "active_lists_count": 20,
         "archived_lists_count": 3,
         "tasks_count": 140,
-        "overdue_tasks_count": 7
+        "overdue_tasks_count": 7,
+        "recent_changes": [
+            {
+                "type": "task",
+                "id": 42,
+                "label": "Подготовить отчёт",
+                "updated_at": "2026-08-07T12:00:00.000000Z"
+            }
+        ]
     }
 }
 ```
 
 `overdue_tasks_count` считает незавершённые задачи со сроком в прошлом.
+`blocked_users_count` — число профилей с `blocked_at != null`.
+`recent_changes` — до 10 последних изменений (`user` / `todo_list` / `task`) по `updated_at`.
 
 ### `GET /api/admin/users`
 
@@ -141,6 +152,16 @@
 публичным `GET /api/users/{user}/todo-lists/{todoList}/tasks`: `search`, `status`,
 `priority`, `tag_id`, `due`, `sort`, `direction`, `per_page`, `page`.
 `tag_id` должен принадлежать владельцу списка.
+
+### `GET /api/admin/tasks`
+
+Глобальная пагинированная коллекция задач с тегами и метаданными владельца/списка.
+Дополнительно к общим фильтрам задач принимает:
+
+- `user_id` — опциональный фильтр по владельцу списка;
+- `list_archived` — boolean; `true` — только архивные списки, `false` — только активные.
+
+В элементах ответа дополнительно присутствуют `user_id`, `user_name`, `is_list_archived`.
 
 ### `PATCH /api/admin/tasks/{task}`
 
@@ -398,9 +419,10 @@ Query-параметры:
 Зафиксированные Resource-контракты используют следующие поля:
 
 - `UserResource`: `id`, `name`, вычисляемый из `blocked_at` флаг `is_blocked`, `blocked_at`,
-  `todo_lists`, timestamps.
+  `todo_lists_count`, `tasks_count`, `todo_lists`, timestamps.
 - `TodoListResource`: `id`, `user_id`, `title`, вычисляемый из `archived_at` флаг
-  `is_archived`, `archived_at`, `tasks`, timestamps.
+  `is_archived`, `archived_at`, `tasks_count`, `completed_tasks_count`, `tasks`, timestamps.
 - `TaskResource`: `id`, `todo_list_id`, `title`, `description`, `status`, `priority`, `due_at`,
-  `completed_at`, `is_overdue`, `tags`, timestamps.
+  `completed_at`, `is_overdue`, `tags`, timestamps; опционально `user_id`, `user_name`,
+  `is_list_archived` (когда загружен `todoList` / `todoList.user`).
 - `TagResource`: `id`, `user_id`, `name`, timestamps.

@@ -31,6 +31,7 @@ Route::prefix('api/admin')->name('api.admin.')->group(function (): void {
             ->name('todo-lists.restore');
         Route::get('todo-lists/{todoList}/tasks', [AdminTaskController::class, 'index'])
             ->name('todo-lists.tasks.index');
+        Route::get('tasks', [AdminTaskController::class, 'indexAll'])->name('tasks.index');
         Route::patch('tasks/{task}', [AdminTaskController::class, 'update'])->name('tasks.update');
         Route::delete('tasks/{task}', [AdminTaskController::class, 'destroy'])->name('tasks.destroy');
     });

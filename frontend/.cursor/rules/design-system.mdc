@@ -1,6 +1,6 @@
 ---
 description: Design tokens and UI styling conventions
-globs: frontend/{assets,components,layouts,pages}/**/*.{vue,scss,css}
+globs: "{assets,components,layouts,pages}/**/*.{vue,scss,css}"
 alwaysApply: false
 ---
 

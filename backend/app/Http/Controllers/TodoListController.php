@@ -26,12 +26,15 @@ final class TodoListController extends Controller
             $query->whereNotNull('archived_at');
         }
 
-        return TodoListResource::collection($query->get());
+        return TodoListResource::collection(
+            $query->withCount(TodoList::resourceCountRelations())->get(),
+        );
     }
 
     public function store(StoreTodoListRequest $request, User $user): JsonResponse
     {
         $todoList = $user->todoLists()->create($request->validated());
+        $todoList->loadCount(TodoList::resourceCountRelations());
 
         return (new TodoListResource($todoList))
             ->response()
@@ -42,6 +45,8 @@ final class TodoListController extends Controller
     {
         Gate::forUser($user)->authorize('view', $todoList);
 
+        $todoList->loadCount(TodoList::resourceCountRelations());
+
         return new TodoListResource($todoList);
     }
 
@@ -51,6 +56,7 @@ final class TodoListController extends Controller
         TodoList $todoList,
     ): TodoListResource {
         $todoList->fill($request->validated())->saveOrFail();
+        $todoList->loadCount(TodoList::resourceCountRelations());
 
         return new TodoListResource($todoList);
     }
@@ -60,6 +66,7 @@ final class TodoListController extends Controller
         Gate::forUser($user)->authorize('archive', $todoList);
 
         $todoList->archive();
+        $todoList->loadCount(TodoList::resourceCountRelations());
 
         return new TodoListResource($todoList);
     }
@@ -69,6 +76,7 @@ final class TodoListController extends Controller
         Gate::forUser($user)->authorize('restore', $todoList);
 
         $todoList->restore();
+        $todoList->loadCount(TodoList::resourceCountRelations());
 
         return new TodoListResource($todoList);
     }

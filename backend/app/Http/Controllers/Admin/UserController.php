@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ListUsersRequest;
 use App\Http\Resources\UserResource;
+use App\Models\TodoList;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -33,6 +34,7 @@ final class UserController extends Controller
         }
 
         $users = $query
+            ->withCount(User::resourceCountRelations())
             ->orderBy('normalized_name')
             ->orderBy('id')
             ->paginate($request->perPage())
@@ -43,7 +45,12 @@ final class UserController extends Controller
 
     public function show(User $user): UserResource
     {
-        $user->load(['todoLists' => fn ($query) => $query->orderBy('id')]);
+        $user->loadCount(User::resourceCountRelations());
+        $user->load([
+            'todoLists' => fn ($query) => $query
+                ->orderBy('id')
+                ->withCount(TodoList::resourceCountRelations()),
+        ]);
 
         return new UserResource($user);
     }
@@ -51,6 +58,7 @@ final class UserController extends Controller
     public function block(User $user): UserResource
     {
         $user->block();
+        $user->loadCount(User::resourceCountRelations());
 
         return new UserResource($user);
     }
@@ -58,6 +66,7 @@ final class UserController extends Controller
     public function unblock(User $user): UserResource
     {
         $user->unblock();
+        $user->loadCount(User::resourceCountRelations());
 
         return new UserResource($user);
     }

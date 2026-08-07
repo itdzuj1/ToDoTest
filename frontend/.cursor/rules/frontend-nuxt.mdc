@@ -1,6 +1,6 @@
 ---
 description: Nuxt 3 and TypeScript conventions
-globs: frontend/**/*.{vue,ts,scss}
+globs: **/*.{vue,ts,scss}
 alwaysApply: false
 ---
 

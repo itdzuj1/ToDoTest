@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 /**
  * @property CarbonImmutable|null $blocked_at
@@ -27,11 +28,27 @@ class User extends Model
     }
 
     /**
+     * @return HasManyThrough<Task, TodoList, $this>
+     */
+    public function tasks(): HasManyThrough
+    {
+        return $this->hasManyThrough(Task::class, TodoList::class);
+    }
+
+    /**
      * @return HasMany<Tag, $this>
      */
     public function tags(): HasMany
     {
         return $this->hasMany(Tag::class);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function resourceCountRelations(): array
+    {
+        return ['todoLists', 'tasks'];
     }
 
     /**

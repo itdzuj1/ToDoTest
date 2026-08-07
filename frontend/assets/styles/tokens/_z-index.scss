@@ -1,6 +1,9 @@
 :root {
-    --z-dropdown: 100;
-    --z-overlay: 200;
-    --z-modal: 300;
-    --z-toast: 400;
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-overlay: 300;
+  --z-sheet: 310;
+  --z-modal: 320;
+  --z-toast: 400;
 }

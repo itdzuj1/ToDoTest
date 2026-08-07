@@ -8,7 +8,7 @@
 
 <style scoped lang="scss">
 .app-shell {
-    width: min(100% - (2 * var(--space-4)), var(--size-content));
+    width: min(100% - (2 * var(--space-4)), var(--content-max));
     margin-inline: auto;
     padding-block: var(--space-12);
 }

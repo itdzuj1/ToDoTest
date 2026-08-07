@@ -1,9 +1,47 @@
-$white: #ffffff;
-$slate-50: #f8fafc;
-$slate-200: #e2e8f0;
-$slate-500: #64748b;
-$slate-700: #334155;
-$slate-900: #0f172a;
-$blue-500: #3b82f6;
-$blue-600: #2563eb;
-$red-500: #ef4444;
+:root {
+  --color-primary: #202020;
+  --color-primary-hover: #2a2a2a;
+
+  --color-brand: #6647f0;
+  --color-brand-hover: #5538d9;
+  --color-brand-tint: #f0ecfe;
+  --color-brand-strong: #4a2fc4;
+
+  --color-link: #0091ff;
+  --color-link-hover: #007ad9;
+
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8f9fa;
+  --color-surface-subtle: #e9ebf0;
+
+  --color-text: #202020;
+  --color-text-strong: #090c1d;
+  --color-text-muted: #646464;
+  --color-text-subtle: #838383;
+
+  --color-border: #e8e8e8;
+  --color-border-strong: #d4d4d4;
+
+  --color-success: #00c07a;
+  --color-success-tint: #e2f8f0;
+  --color-success-strong: #046c4a;
+
+  --color-info: #0091ff;
+  --color-info-tint: #e4f2ff;
+  --color-info-strong: #0060a9;
+
+  --color-warning: #f59e0b;
+  --color-warning-tint: #fdf1de;
+  --color-warning-strong: #96620a;
+
+  --color-danger: #d92d20;
+  --color-danger-tint: #fdeceb;
+  --color-danger-strong: #a4231a;
+
+  --color-focus: #0091ff;
+
+  --color-overlay: rgba(9, 12, 29, 0.35);
+  --color-sidebar-bg: #202020;
+  --color-sidebar-item: rgba(255, 255, 255, 0.62);
+  --color-sidebar-item-active-bg: rgba(255, 255, 255, 0.12);
+}

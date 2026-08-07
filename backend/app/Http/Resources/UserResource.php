@@ -19,6 +19,8 @@ final class UserResource extends JsonResource
             'name' => $this->name,
             'is_blocked' => $this->isBlocked(),
             'blocked_at' => $this->blocked_at?->toISOString(),
+            'todo_lists_count' => (int) ($this->todo_lists_count ?? 0),
+            'tasks_count' => (int) ($this->tasks_count ?? 0),
             'todo_lists' => TodoListResource::collection($this->whenLoaded('todoLists')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

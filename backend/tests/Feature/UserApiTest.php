@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Task;
+use App\Models\TodoList;
 use App\Models\User;
 
 it('lists only active profiles in normalized name order', function () {
@@ -15,12 +17,18 @@ it('lists only active profiles in normalized name order', function () {
         'name' => 'Blocked',
         'normalized_name' => 'blocked',
     ]);
+    $list = TodoList::factory()->for($firstUser)->create();
+    Task::factory()->for($list)->count(2)->create();
 
     $this->getJson('/api/users')
         ->assertOk()
         ->assertJsonCount(2, 'data')
         ->assertJsonPath('data.0.id', $firstUser->id)
         ->assertJsonPath('data.1.id', $secondUser->id)
+        ->assertJsonPath('data.0.todo_lists_count', 1)
+        ->assertJsonPath('data.0.tasks_count', 2)
+        ->assertJsonPath('data.1.todo_lists_count', 0)
+        ->assertJsonPath('data.1.tasks_count', 0)
         ->assertJsonMissingPath('data.0.todo_lists');
 });
 
@@ -31,6 +39,8 @@ it('returns a blocked profile by its id', function () {
         ->assertOk()
         ->assertJsonPath('data.id', $user->id)
         ->assertJsonPath('data.is_blocked', true)
+        ->assertJsonPath('data.todo_lists_count', 0)
+        ->assertJsonPath('data.tasks_count', 0)
         ->assertJsonMissingPath('data.todo_lists');
 });
 
@@ -42,7 +52,9 @@ it('creates and normalizes a demo profile', function () {
     ])
         ->assertCreated()
         ->assertJsonPath('data.name', 'Анна Смирнова')
-        ->assertJsonPath('data.is_blocked', false);
+        ->assertJsonPath('data.is_blocked', false)
+        ->assertJsonPath('data.todo_lists_count', 0)
+        ->assertJsonPath('data.tasks_count', 0);
 
     $this->assertDatabaseHas('users', [
         'name' => 'Анна Смирнова',

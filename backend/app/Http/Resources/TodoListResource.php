@@ -20,6 +20,8 @@ final class TodoListResource extends JsonResource
             'title' => $this->title,
             'is_archived' => $this->isArchived(),
             'archived_at' => $this->archived_at?->toISOString(),
+            'tasks_count' => (int) ($this->tasks_count ?? 0),
+            'completed_tasks_count' => (int) ($this->completed_tasks_count ?? 0),
             'tasks' => TaskResource::collection($this->whenLoaded('tasks')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

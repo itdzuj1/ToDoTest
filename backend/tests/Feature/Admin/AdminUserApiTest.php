@@ -67,14 +67,20 @@ it('shows a user with todo lists and without nested tasks', function () {
     $firstList = TodoList::factory()->for($user)->create(['title' => 'Первый']);
     $secondList = TodoList::factory()->for($user)->create(['title' => 'Второй']);
     Task::factory()->for($firstList)->create();
+    Task::factory()->for($firstList)->done()->create();
 
     $this->actingAs(Admin::factory()->create(), 'admin')
         ->getJson("/api/admin/users/{$user->id}")
         ->assertOk()
         ->assertJsonPath('data.id', $user->id)
+        ->assertJsonPath('data.todo_lists_count', 2)
+        ->assertJsonPath('data.tasks_count', 2)
         ->assertJsonCount(2, 'data.todo_lists')
         ->assertJsonPath('data.todo_lists.0.id', $firstList->id)
+        ->assertJsonPath('data.todo_lists.0.tasks_count', 2)
+        ->assertJsonPath('data.todo_lists.0.completed_tasks_count', 1)
         ->assertJsonPath('data.todo_lists.1.id', $secondList->id)
+        ->assertJsonPath('data.todo_lists.1.tasks_count', 0)
         ->assertJsonMissingPath('data.todo_lists.0.tasks');
 });
 

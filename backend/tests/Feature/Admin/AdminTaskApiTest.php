@@ -26,9 +26,53 @@ it('requires an admin session for task endpoints', function (string $method, str
         ]);
 })->with([
     'index' => ['GET', '/api/admin/todo-lists/{todoList}/tasks'],
+    'index-all' => ['GET', '/api/admin/tasks'],
     'update' => ['PATCH', '/api/admin/tasks/{task}'],
     'destroy' => ['DELETE', '/api/admin/tasks/{task}'],
 ]);
+
+it('lists all tasks across todo lists with owner and archive metadata', function () {
+    $admin = Admin::factory()->create();
+    $user = User::factory()->create(['name' => 'Анна']);
+    $otherUser = User::factory()->create(['name' => 'Борис']);
+    $activeList = TodoList::factory()->for($user)->create();
+    $archivedList = TodoList::factory()->for($user)->archived()->create();
+    $otherList = TodoList::factory()->for($otherUser)->create();
+
+    $activeTask = Task::factory()->for($activeList)->create([
+        'title' => 'Active owner task',
+        'status' => TaskStatus::Todo,
+    ]);
+    $archivedTask = Task::factory()->for($archivedList)->create([
+        'title' => 'Archived list task',
+        'status' => TaskStatus::InProgress,
+    ]);
+    Task::factory()->for($otherList)->create([
+        'title' => 'Other user task',
+    ]);
+
+    $this->actingAs($admin, 'admin')
+        ->getJson('/api/admin/tasks?user_id='.$user->id.'&per_page=10')
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.user_id', $user->id)
+        ->assertJsonPath('data.0.user_name', 'Анна')
+        ->assertJsonFragment(['id' => $activeTask->id, 'is_list_archived' => false])
+        ->assertJsonFragment(['id' => $archivedTask->id, 'is_list_archived' => true]);
+
+    $this->actingAs($admin, 'admin')
+        ->getJson('/api/admin/tasks?user_id='.$user->id.'&list_archived=1&status=in_progress')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $archivedTask->id)
+        ->assertJsonPath('data.0.is_list_archived', true);
+
+    $this->actingAs($admin, 'admin')
+        ->getJson('/api/admin/tasks?search=Active&list_archived=0')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $activeTask->id);
+});
 
 it('lists tasks for a todo list with filters and pagination', function () {
     $this->travelTo('2026-08-05 12:00:00');

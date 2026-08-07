@@ -17,6 +17,7 @@ final class UserController extends Controller
     {
         $users = User::query()
             ->whereNull('blocked_at')
+            ->withCount(User::resourceCountRelations())
             ->orderBy('normalized_name')
             ->orderBy('id')
             ->get();
@@ -41,6 +42,8 @@ final class UserController extends Controller
             ]);
         }
 
+        $user->loadCount(User::resourceCountRelations());
+
         return (new UserResource($user))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
@@ -48,6 +51,8 @@ final class UserController extends Controller
 
     public function show(User $user): UserResource
     {
+        $user->loadCount(User::resourceCountRelations());
+
         return new UserResource($user);
     }
 }
