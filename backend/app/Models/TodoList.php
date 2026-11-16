@@ -38,7 +38,7 @@ class TodoList extends Model
     }
 
     /**
-     * @return array<int|string, string|callable(Builder): Builder>
+     * @return array<int|string, string|callable(Builder<Task>): Builder<Task>>
      */
     public static function resourceCountRelations(): array
     {

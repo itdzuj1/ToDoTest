@@ -12,7 +12,7 @@ use App\Http\Resources\TaskResource;
 use App\Models\Task;
 use App\Models\TodoList;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -78,10 +78,10 @@ final class TaskController extends Controller
     }
 
     /**
-     * @param  Builder<Task>|Relation  $query
+     * @param  Builder<Task>|HasMany<Task, TodoList>  $query
      */
     private function applyTaskFilters(
-        Builder|Relation $query,
+        Builder|HasMany $query,
         ?string $search,
         ?TaskStatus $status,
         ?TaskPriority $priority,
@@ -147,7 +147,7 @@ final class TaskController extends Controller
             $attributes = $request->validated();
             unset($attributes['status'], $attributes['priority'], $attributes['tag_ids']);
 
-            //часто повторяется. Выносить отдельно?
+            // часто повторяется. Выносить отдельно?
             if (array_key_exists('due_at', $attributes)) {
                 $attributes['due_at'] = $request->dueAt();
             }

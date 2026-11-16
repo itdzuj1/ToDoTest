@@ -21,6 +21,7 @@
         <!-- Docker sets APP_ENV in $_SERVER; Laravel reads it before PHPUnit <env force>. -->
         <env name="APP_ENV" value="testing" force="true"/>
         <server name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:0861YAeU89MX5WVxKkfEpJy12VGnwuD81jVr4aw6xgk=" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
