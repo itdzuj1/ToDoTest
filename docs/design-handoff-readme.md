@@ -9,12 +9,11 @@
 ## Fidelity
 **High-fidelity.** Цвета, типографика, размеры контролов, радиусы и состояния — финальные. Воспроизводить попиксельно, но средствами Vue-компонентов и SCSS, а не копированием инлайн-стилей из HTML.
 
-## Как использовать с Cursor
-1. Скопируйте `cursor-rules/` в корень репозитория и переименуйте в `.cursor/rules/` (файлы `.mdc` подхватываются автоматически).
-2. Скопируйте `tokens/` в `frontend/assets/styles/tokens/` и `themes/` в `frontend/assets/styles/themes/`.
-3. Откройте `docs/reference/todotest-design-reference.html` в браузере, это визуальный эталон.
-4. Стартовый промпт агенту:
-   > Реализуй экран `pages/lists/[id].vue` по `docs/screens.md` (раздел «Todo list details») и контрактам из `docs/components.md`. Соблюдай правила из `.cursor/rules`. Визуальный эталон — `docs/reference/todotest-design-reference.html`.
+## Как использовать с Claude Code
+1. Правила из пакета уже перенесены в `.claude/rules/` (подхватываются автоматически по `paths`), токены — в `frontend/assets/styles/tokens/`, темы — в `frontend/assets/styles/themes/`.
+2. Откройте `docs/reference/todotest-design-reference.html` в браузере, это визуальный эталон.
+3. Стартовый промпт агенту:
+   > Реализуй экран `pages/lists/[id].vue` по `docs/screens.md` (раздел «Todo list details») и контрактам из `docs/components.md`. Визуальный эталон — `docs/reference/todotest-design-reference.html`.
 
 ## Состав пакета
 ```
@@ -27,7 +26,6 @@ docs/
   tests.md          — unit / component / e2e сценарии
 tokens/             — готовые SCSS-файлы токенов
 themes/             — default.scss, dark.scss
-cursor-rules/       — правила для Cursor (.mdc)
 reference/          — HTML-эталон дизайна
 ```
 

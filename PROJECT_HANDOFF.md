@@ -67,7 +67,7 @@ ToDoTest/
 ├── frontend/
 ├── docker/
 ├── docs/
-├── .cursor/rules/
+├── .claude/rules/
 ├── compose.yml
 ├── Makefile
 └── README.md
@@ -162,7 +162,7 @@ Route → FormRequest → Controller → optional Action/Service → Model → R
 
 ## Инструкция новому агенту
 
-1. Прочитать этот файл и `.cursor/rules/*.mdc`.
+1. Прочитать этот файл, `CLAUDE.md` и `.claude/rules/*.md`.
 2. Не начинать реализацию до уточнения функциональных требований todo-приложения.
 3. Предложить минимальную архитектуру, пропорциональную размеру проекта.
 4. Перед установкой зависимостей проверить актуальные официальные версии.

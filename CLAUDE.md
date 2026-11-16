@@ -67,7 +67,7 @@ Frontend доступен на `http://localhost:3000`, backend — на `http:/
 - 422 → `{ "errors": { "field": ["..."] } }`;
 - остальное → `{ "code": "...", "message": "..." }` со стабильными кодами `unauthenticated`, `forbidden`, `not_found`, `method_not_allowed`, `csrf_token_mismatch`, `too_many_requests`, `http_error`.
 
-Внутренние детали исключений наружу не попадают. Успешные create/update возвращают актуальный Resource, delete — 204.
+Внутренние детали исключений наружу не попадают. POST — создание, PATCH — обновление, DELETE — удаление/архивация по контракту; успешные create/update возвращают актуальный Resource, delete — 204. Бизнес-конфликты отдают стабильный машиночитаемый `code` и безопасный для пользователя `message`. Пагинированные эндпоинты используют одну структуру data/meta. Авторизация всегда проверяется на backend, даже если frontend скрывает недоступные действия. OpenAPI/кодогенерацию не вводить, пока контракт не стабилизировался.
 
 Счётчики связей задаются статическим `resourceCountRelations()` на модели (`User`, `TodoList`) и подставляются в `withCount()`/`loadCount()` — добавляя счётчик в Resource, расширяйте этот метод, а не пишите `withCount` по месту.
 
@@ -109,4 +109,4 @@ Backend:
 
 - `docs/` — концепция, экраны, состояния, компоненты, план реализации frontend и дизайн-хендофф (`docs/frontend-implementation-plan.md`, `docs/components.md`, `docs/states.md`).
 - `backend/docs/api.md` — полный API-контракт.
-- `.cursor/rules/` и `frontend/.cursor/rules/` — детальные правила (токены, компоненты, a11y, тесты); при расхождении с этим файлом ориентируйтесь на них как на первоисточник.
+- `.claude/rules/` — детальные правила, подгружаются автоматически по `paths` при работе с соответствующими файлами: `backend.md` (Laravel, enum, api-changes, schemaspy), `frontend.md` (структура, именование, API layer, слайсы, definition of done), `frontend-styles.md` (токены, типографика, SCSS), `frontend-components.md` (контракты паттернов, состояния, a11y), `frontend-testing.md`. При расхождении с этим файлом первоисточник — они.
