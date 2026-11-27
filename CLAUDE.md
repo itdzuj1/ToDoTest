@@ -109,4 +109,6 @@ Backend:
 
 - `docs/` — концепция, экраны, состояния, компоненты, план реализации frontend и дизайн-хендофф (`docs/frontend-implementation-plan.md`, `docs/components.md`, `docs/states.md`).
 - `backend/docs/api.md` — полный API-контракт.
+- `docs/backend-improvement-plan.md` — **текущая работа**: план доработок backend по этапам, статусы пунктов, рабочие договорённости с пользователем, состояние локального окружения. Начинать сессию с него.
+- `docs/backend-walkthrough.md` — итоги построчного разбора backend: чек-лист, исходный бэклог находок, проверенные факты о поведении кода («Заметки по ходу»).
 - `.claude/rules/` — детальные правила, подгружаются автоматически по `paths` при работе с соответствующими файлами: `backend.md` (Laravel, enum, api-changes, schemaspy), `frontend.md` (структура, именование, API layer, слайсы, definition of done), `frontend-styles.md` (токены, типографика, SCSS), `frontend-components.md` (контракты паттернов, состояния, a11y), `frontend-testing.md`. При расхождении с этим файлом первоисточник — они.
