@@ -17,7 +17,7 @@ make migrate       # artisan migrate
 make seed          # artisan db:seed (создаёт админа из ADMIN_* в compose.yml)
 make logs
 
-make lint          # eslint + pint --test + phpstan
+make lint          # eslint + prettier --check + pint --test + phpstan
 make test          # vitest run + pest
 make check         # lint + test + nuxt typecheck + nuxt build
 ```

@@ -651,7 +651,7 @@ npm run build
 
 `make check` должен продолжать запускать полный набор проверок через Docker.
 
-CI использует Node.js 24.18 и должен проверять frontend отдельно по quality, test и build stages.
+CI — GitHub Actions (`.github/workflows/ci.yml`). Задание `frontend` берёт версию Node.js из `frontend/.nvmrc` (24.18) и по очереди запускает `lint`, `format:check`, `typecheck`, `test:run` и `build`. `test:e2e` в CI пока не запускается.
 
 ## 16. Критерии готовности frontend-среза
 

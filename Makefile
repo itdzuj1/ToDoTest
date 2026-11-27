@@ -26,6 +26,7 @@ seed:
 
 lint:
 	docker compose exec -T frontend npm run lint
+	docker compose exec -T frontend npm run format:check
 	docker compose exec -T backend composer format:test
 	docker compose exec -T backend composer analyse
 
