@@ -2,6 +2,8 @@
 
 Составлен 2026-11-27 по итогам построчного разбора backend (`docs/backend-walkthrough.md`). Каждый пункт ниже проверен вживую: запросами к работающему API, в `tinker` или в `psql`. Статус пункта отмечается прямо здесь: `- [ ]` → `- [x]`.
 
+Уточнён 2026-11-27 после повторной сверки с кодом: поправлены C1, B1 и B4, изменён порядок этапа 3, B5 перенесён в S6, миграции из этапа 6 — в D10 и D11.
+
 ---
 
 ## Для агента: начни здесь
@@ -40,7 +42,8 @@ Backend готов: публичный API и админка, 180 Pest-тест�
   - пользователи: 1 «Разбор Демо», 2 «Заблокированный Демо» (заблокирован), 3 «Анна Смирнова», 4 «Пётр Иванов»;
   - списки: у Анны 8 «Работа и учёба» и 9 «Личные дела» (в архиве), у Петра 10 «Дача»;
   - теги: у Анны 6 «Срочно» и 7 «Работа», у Петра 8 «Срочно» и 9 «Магазин»;
-  - задачи: в списке 8 — 12, 17, 21–24 (разные статусы, приоритеты, сроки и теги), в списке 9 — 26 «Старая идея», у Петра — 13.
+  - задачи: в списке 8 — 12, 17, 21–24 (разные статусы, приоритеты, сроки и теги), в списке 9 — 26 «Старая идея», у Петра — 13;
+  - всё это создано вручную и сидером не воспроизводится — см. D3.
 
 **Вход админа из shell** (cookie и CSRF):
 ```bash
@@ -56,7 +59,13 @@ curl -s -b $J $B/tasks -H 'Accept: application/json'
 - shell — zsh: адрес с `?` брать в кавычки, иначе zsh примет его за шаблон файлов; `$VAR` с несколькими аргументами не разбивается на слова;
 - кириллицу в query-параметрах URL-кодировать, иначе curl не отправит запрос (`HTTP 000`);
 - `tinker` сам даёт моделям короткие имена, поэтому `User::class` там равно `'User'`. Для `::class` писать полное имя `App\Models\User`;
-- `php artisan test --filter=UserApiTest` ищет подстроку и захватит `AdminUserApiTest`. Один файл: `php artisan test tests/Feature/UserApiTest.php`.
+- `php artisan test --filter=UserApiTest` ищет подстроку и захватит `AdminUserApiTest`. Один файл: `php artisan test tests/Feature/UserApiTest.php`;
+- `gh` не установлен. Репозиторий публичный, поэтому статусы GitHub Actions читаются без входа через публичный API (текст логов — только в браузере):
+  ```bash
+  R=https://api.github.com/repos/itdzuj1/ToDoTest/actions
+  curl -s "$R/runs?per_page=3" | python3 -c "import sys,json;[print(r['id'],r['status'],r['conclusion'],r['head_sha'][:7],r['display_title']) for r in json.load(sys.stdin)['workflow_runs']]"
+  curl -s "$R/runs/<id>/jobs" | python3 -c "import sys,json;[print(j['name'],j['conclusion'],[(s['name'],s['conclusion']) for s in j['steps']]) for j in json.load(sys.stdin)['jobs']]"
+  ```
 
 ---
 
@@ -66,16 +75,25 @@ curl -s -b $J $B/tasks -H 'Accept: application/json'
 
 - [ ] **C1. Перенести CI из GitLab в GitHub Actions**
   - **Проблема.** `origin` — `github.com/itdzuj1/ToDoTest`, а пайплайн описан только в `.gitlab-ci.yml`; `.github/workflows` нет. При push не запускается ни одна проверка, хотя `PROJECT_HANDOFF.md` требует lint, анализ, тесты и сборку в CI. Вдобавок образ `composer:2` из старого пайплайна сейчас на PHP **8.5.13**, а Docker-образ backend — на **8.4.26**.
-  - **Решение.** Workflow `.github/workflows/ci.yml` на push и pull_request:
-    - backend: PHP **8.4** (расширения `mbstring`, `pdo_sqlite`, `pdo_pgsql`), кэш composer, `composer install`, затем `composer format:test`, `composer analyse`, `composer test`;
-    - frontend: Node **24.18** (как в `frontend/.nvmrc` и `docs/dependencies.md`), кэш npm, `npm ci`, затем `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run test:run`, `npm run build`.
+  - **Решение.** Workflow `.github/workflows/ci.yml`: запуск на push в `main`, на pull_request и вручную; два независимых задания:
+    - `backend`: PHP **8.4** (`shivammathur/setup-php`, расширения `mbstring`, `pdo_sqlite`, `pdo_pgsql`), кэш composer, `composer install`, `touch .env`, затем `composer format:test`, `composer analyse`, `composer test`;
+    - `frontend`: Node из `frontend/.nvmrc`, кэш npm, `npm ci`, затем `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run test:run`, `npm run build`.
 
-    Версии actions и setup-php проверить по официальным источникам на момент работы. Удалить `.gitlab-ci.yml`. Обновить упоминание CI в `docs/frontend-implementation-plan.md` (раздел 15). e2e и Postgres в CI — отдельные решения, см. D8.
-  - **Проверка.** Push → зелёный запуск в GitHub Actions (`gh run list`, `gh run view`).
+    Сопутствующее:
+    - `frontend/.nvmrc` исправлен с `22.22.2` на `24.18` — как в Docker-образе и `docs/dependencies.md`; CI берёт версию из него.
+    - `touch .env` в CI обязателен. Без файла phpdotenv на каждом Feature-тесте пытается его прочитать, и Pest печатает 179 предупреждений при коде выхода 0 — запуск «зелёный, но шумный». Значения тестам не нужны, их задаёт `phpunit.xml`; с пустым `.env` прогон чистый.
+    - `make lint` дополнен `npm run format:check` (Prettier): раньше его не запускала ни одна make-цель, и локальная проверка расходилась с CI.
+    - `.gitlab-ci.yml` удалён, раздел 15 в `docs/frontend-implementation-plan.md` обновлён.
+    - Версии actions сверены 2026-11-27 по GitHub API и README: `actions/checkout@v7`, `actions/setup-node@v7`, `actions/cache@v6`, `shivammathur/setup-php@v2`.
+
+    e2e и Postgres в CI — отдельные решения, см. D8.
+  - **Проверка.** Перед push: `make lint`, `make test` и `actionlint` для синтаксиса workflow. После push — зелёный запуск в GitHub Actions; статусы читать командой из «Подводных камней окружения».
 
 ---
 
 ## Этап 2. Баги — ломают поведение или контракт
+
+Перед B1 спросить пользователя про D3 (демо-сидер): живые проверки этого этапа опираются на данные, созданные в локальной базе вручную.
 
 - [ ] **B1. `ApiExceptionRenderer`: неверный код 403, потерянные заголовки, 500 вне формата**
   - **Проблема.**
@@ -83,8 +101,12 @@ curl -s -b $J $B/tasks -H 'Accept: application/json'
     2. Рендерер собирает новый `response()->json(...)` и теряет `$exception->getHeaders()`. 429 на входе админа приходит без `Retry-After` и `X-RateLimit-*`, 405 — без `Allow`.
     3. Неизвестное исключение (`default => null`, строка 30) уходит в стандартный JSON Laravel: при `APP_DEBUG=true` — `{message, exception, file, line, trace}`, без debug — `{"message":"Server Error"}`. Нет `code`.
   - **Решение.** Маппинг по HTTP-статусу (добавить `403 => forbidden`), мёртвые ветки убрать. Для `HttpExceptionInterface` переносить заголовки в ответ. Для неизвестных исключений отдавать `{code: "server_error", message: ...}` (500); логирование Laravel при этом сохраняется. Добавить `Retry-After` в `exposed_headers` в `backend/config/cors.php:9`: без этого браузер не даст фронту на `:3000` прочитать заголовок, даже если сервер его пришлёт.
-  - **Контракт.** Меняется: `code` у 403, новые заголовки, новый код `server_error`. Нужны `api-changes`, `api.md`, `frontend/types` (если там перечислены коды).
-  - **Проверка.** Тесты, которые проверяют **`code` в теле**, а не только статус: 401, 403, 404, 405, 419, 422, 429, а у 429 — `Retry-After`. Сейчас тело проверяется только для 401 и 429, поэтому баг и не пойман. Плюс живой `curl` на 403 и 429.
+
+    Два уточнения:
+    - `Illuminate\Http\Exceptions\HttpResponseException` пропускать мимо рендерера (`return null`). `Handler::render()` разворачивает его в готовый ответ уже **после** render-callback'ов, поэтому ветка «неизвестное → 500» подменила бы этот ответ на 500.
+    - Решить с пользователем: добавлять ли к `server_error` детали исключения (класс, сообщение, trace) при `APP_DEBUG=true`. Без них в локальной разработке trace останется только в `storage/logs/laravel.log`.
+  - **Контракт.** Меняется: `code` у 403, новые заголовки, новый код `server_error`. Нужны `api-changes` и `api.md`. Во `frontend/types` коды не перечислены (`ApiErrorBody.code: string`), правка там не нужна.
+  - **Проверка.** Тесты, которые проверяют **`code` в теле**, а не только статус: 401, 403, 404, 405, 419, 429, 500 (у 422 — формат `{errors}`), а у 429 — `Retry-After`. Сейчас тело проверяется только для 401 и 429, поэтому баг и не пойман. 419 обычным запросом в тесте не получить: CSRF в тестах отключён (см. «Что известно»). Поэтому 419 и 500 проверять прямым вызовом обработчика исключений или тестовым маршрутом, который бросает нужное исключение. Плюс живой `curl` на 403 и 429.
 
 - [ ] **B2. `list_archived=true` → 422, а фронт отправит именно `"true"`**
   - **Проблема.** Правило `boolean` (`backend/app/Http/Requests/Admin/ListAllTasksRequest.php:47`) принимает `true/false/1/0/"1"/"0"`, но не строки `"true"`/`"false"`, а в query всё приходит строками. Фронт описывает параметр как `list_archived?: boolean` (`frontend/services/api/admin.ts:36`), а `buildQuery` делает `String(value)` (`frontend/services/api/client.ts:115`). Итог: `?list_archived=true`, и чип «Архивные списки» в админке всегда получит 422. `api.md` пишет «boolean; `true` — только архивные» и этим подталкивает к ошибке. При этом `2026-08-07-admin-tasks-index.md` верно велит слать `=1`.
@@ -101,16 +123,18 @@ curl -s -b $J $B/tasks -H 'Accept: application/json'
   - **Решение.** `->latest()->orderByDesc('id')`.
   - **Проверка.** Тест: два списка с одинаковым `created_at` → новый (больший id) первым.
 
-- [ ] **B4. Набор полей в ответе задачи зависит от того, как политика проверила права**
-  - **Проблема.** Публичный `GET /api/users/{u}/todo-lists/{l}/tasks/{t}` отдаёт лишние `is_list_archived` и `user_id`, а список задач и ответ `PATCH` той же задачи — нет. Причина: `TaskPolicy::view()` (`backend/app/Policies/TaskPolicy.php:32`) обращается к `$task->todoList` и тем самым подгружает связь, а `TaskResource` (`backend/app/Http/Resources/TaskResource.php:27`) добавляет эти поля, если связь загружена. Документ `2026-08-07-admin-tasks-index.md` прямо утверждает, что публичные эндпоинты этих полей не отдают.
-  - **Решение.** Эти поля нужны только админке (там их явно грузит `with(['tags', 'todoList.user'])`). Сделать так, чтобы политика не подгружала связь как побочный эффект (проверять владельца без загрузки `todoList`, например запросом). Связано с R3.
-  - **Контракт.** Из публичного `show` уходят незадокументированные поля, нужен `api-changes`.
-  - **Проверка.** Тест: публичный `show` задачи без `user_id`/`is_list_archived`; админский `GET /api/admin/tasks` — с ними.
+- [ ] **B4. Набор полей в ответе задачи зависит от побочных эффектов**
+  - **Проблема.** `TaskResource` (`backend/app/Http/Resources/TaskResource.php:27`) добавляет `is_list_archived`, `user_id` и `user_name`, если связь `todoList` оказалась загружена. А загружается она не только там, где это задумано (`with(['tags', 'todoList.user'])` в `GET /api/admin/tasks`), но и как побочный эффект проверок:
+    1. Публичный `GET /api/users/{u}/todo-lists/{l}/tasks/{t}` отдаёт лишние `is_list_archived` и `user_id`, а список задач и ответ `PATCH` той же задачи — нет. Причина: `TaskPolicy::view()` (`backend/app/Policies/TaskPolicy.php:32`) читает `$task->todoList` и тем самым подгружает связь. Документ `2026-08-07-admin-tasks-index.md` прямо утверждает, что публичные эндпоинты этих полей не отдают.
+    2. Админский `PATCH /api/admin/tasks/{task}` отдаёт разный набор полей в зависимости от тела запроса. Проверено на задаче 17: `{"title": ...}` → без этих полей; `{"tag_ids":[6,7]}` → с `user_id` и `is_list_archived`, но без `user_name`. Причина: `Admin/UpdateTaskRequest::taskOwnerId()` делает `loadMissing('todoList')` только при проверке `tag_ids.*`.
+    3. Админский `GET /api/admin/todo-lists/{todoList}/tasks` этих полей не отдаёт совсем, а `GET /api/admin/tasks` отдаёт все три.
+  - **Решение.** Убрать зависимость набора полей от `relationLoaded`: публичные ответы не содержат `user_id` / `user_name` / `is_list_archived` никогда, админские — по явному правилу. Выбрать с пользователем:
+    - как разделить: отдельный `Admin\TaskResource` с тремя полями (**рекомендация** — у админки свой контракт) или явный флаг у общего ресурса;
+    - какие админские ответы отдают эти поля: все ответы с задачей (**рекомендация**, единообразно) или только `GET /api/admin/tasks`, как сейчас записано в `api.md`.
 
-- [ ] **B5. У модели `Task` нет значений по умолчанию**
-  - **Проблема.** Значения по умолчанию `status = 'todo'` и `priority = 'medium'` живут только в базе. После `$list->tasks()->create(['title' => ...])` в объекте `status === null`, хотя в базе `'todo'`: Laravel после вставки строку не перечитывает. Любой код, который вызовет `isOverdue()` сразу после такого `create()`, упадёт на `null->isNot()`. Контроллер обходит это (`backend/app/Http/Controllers/TaskController.php:116-117`), но платит лишним запросом: `INSERT` без статуса, затем `UPDATE` из `changeStatus()`.
-  - **Решение.** `protected $attributes = ['status' => 'todo', 'priority' => 'medium']` в `backend/app/Models/Task.php`. По желанию — собрать `store()` в один `INSERT`: статус и `completed_at` задать до сохранения.
-  - **Проверка.** Тест/tinker: `create()` → `status` равен `TaskStatus::Todo` без `refresh()`; журнал SQL `store` — без лишнего `UPDATE`.
+    Править одну политику недостаточно: это лечит только случай 1. После правки ресурса политика может проверять владельца любым способом — см. R3.
+  - **Контракт.** Из публичного `show` уходят незадокументированные поля; набор полей админских ответов становится постоянным. Нужны `api-changes`, `api.md` и `frontend/types`.
+  - **Проверка.** Тесты: публичные `show` / `index` / `PATCH` задачи — без `user_id`, `user_name`, `is_list_archived`; админский `PATCH` отдаёт один и тот же набор полей с `tag_ids` и без них; `GET /api/admin/tasks` — с тремя полями.
 
 ---
 
@@ -118,15 +142,24 @@ curl -s -b $J $B/tasks -H 'Accept: application/json'
 
 Каждый пункт: вопрос, варианты и рекомендация. После решения он превращается в задачу и идёт по общему порядку работы.
 
+Порядок: D8 решать первым — от него зависят D7, S4 и состав CI. Про D3 спросить ещё до этапа 2.
+
+- [ ] **D8. Тесты на SQLite или Postgres.** Расхождения уже видны: в SQLite `LIKE` без учёта регистра работает только для латиницы, а коды ошибок БД разные (`23000` vs `23505`). Варианты: оставить SQLite локально и добавить Postgres-джобу в CI, или перейти на Postgres полностью. От решения зависят:
+  - D7: SQLite не умеет `ALTER TABLE ... ADD CONSTRAINT`, миграции с CHECK понадобится ветка по драйверу;
+  - S4: экранирование `LIKE` работает по-разному (в Postgres `\` экранирует по умолчанию, в SQLite нужен явный `ESCAPE`);
+  - CI: нужен ли сервис Postgres в `.github/workflows/ci.yml`.
+
+  Отдельно — нужен ли e2e в CI.
+- [ ] **D3. Сидер демо-данных.** `DatabaseSeeder` создаёт только админа, публичная часть после `make seed` пустая. **Рекомендация:** отдельный `DemoSeeder` (2–3 пользователя, активный и архивный списки, задачи с разными статусами и сроками, теги, один заблокированный), только для local. Спросить до этапа 2: демо-данные для живых проверок сейчас есть только в локальной базе и при её потере не восстановятся.
 - [ ] **D1. Заблокированные на экране выбора профиля.** `GET /api/users` их скрывает (`backend/app/Http/Controllers/UserController.php:19`), а `docs/screens.md` рисует карточку «Заблокирован — доступен только для чтения». Варианты: отдавать заблокированных в списке с `is_blocked: true` или поправить макет. **Рекомендация:** отдавать — это совпадает с доменным правилом «заблокированный доступен для чтения». Это изменение контракта.
 - [ ] **D2. «Сегодня» для `due=today` / `due=upcoming`.** Сейчас границы дня по UTC. Задача со сроком 24.11 23:00 UTC (= 25.11 02:00 по Москве) попала в «сегодня» 24.11. Варианты: необязательный параметр `tz` (IANA, по умолчанию UTC) или явные границы с фронта. **Рекомендация:** `tz`.
-- [ ] **D3. Сидер демо-данных.** `DatabaseSeeder` создаёт только админа, публичная часть после `make seed` пустая. **Рекомендация:** отдельный `DemoSeeder` (2–3 пользователя, активный и архивный списки, задачи с разными статусами и сроками, теги, один заблокированный), только для local.
 - [ ] **D4. `UserPolicy`.** Нигде не используется (с коммита `24dd5db`), а её `before()` запрещает заблокированному даже `view`, вопреки `api.md`. **Рекомендация:** удалить.
 - [ ] **D5. Поле `tasks` в `TodoListResource`.** Никогда не заполняется: задачи грузятся отдельным пагинированным запросом. **Рекомендация:** убрать вместе с `tasks?: Task[]` во `frontend/types`.
 - [ ] **D6. `schemaspy.sql`.** Нигде не применяется: в живой базе комментариев нет. Варианты: make-цель, которая применяет комментарии (и, по желанию, генерирует HTML через образ SchemaSpy), или считать файл документацией. **Рекомендация:** make-цель для применения комментариев.
-- [ ] **D7. CHECK-ограничения для `tasks.status` / `tasks.priority`.** Сейчас база примет `'whatever'`, и после этого любое чтение задачи падает с `ValueError` в enum-cast. **Рекомендация:** добавить новой миграцией и синхронизировать `schemaspy.sql`. Хороший учебный пункт.
-- [ ] **D8. Тесты на SQLite или Postgres.** Расхождения уже видны: в SQLite `LIKE` без учёта регистра работает только для латиницы, а коды ошибок БД разные (`23000` vs `23505`). Варианты: оставить SQLite локально и добавить Postgres-джобу в CI, или перейти на Postgres полностью. Отдельно — нужен ли e2e в CI.
+- [ ] **D7. CHECK-ограничения для `tasks.status` / `tasks.priority`.** Сейчас база примет `'whatever'`, и после этого любое чтение задачи падает с `ValueError` в enum-cast. **Рекомендация:** добавить новой миграцией и синхронизировать `schemaspy.sql`. Хороший учебный пункт. Зависит от D8.
 - [ ] **D9. `final` для моделей.** Правило проекта требует `final`-классы, модели сейчас не `final`. **Рекомендация:** зафиксировать в `.claude/rules/backend.md` исключение для Eloquent-моделей или сделать `final` — решить и записать.
+- [ ] **D10. Единый тип времени.** Состояния (`blocked_at`, `archived_at`, `due_at`, `completed_at`) — `timestamptz`, а `created_at`/`updated_at` — `timestamp` без пояса. Работает, потому что `app.timezone` и пояс БД — UTC. Варианты: перейти на `timestampsTz()` новой миграцией (и синхронизировать `schemaspy.sql`) или осознанно оставить и записать в «Что известно». **Рекомендация:** оставить — пока приложение и база в UTC, пользы от миграции нет. Перенесено из этапа 6: это миграция, а не стиль.
+- [ ] **D11. Индекс `task_tag(tag_id)`.** Составной PK `(task_id, tag_id)` не покрывает поиск по одному `tag_id`: при удалении тега Postgres ищет связи полным перебором. На учебных объёмах незаметно. Варианты: добавить индекс новой миграцией или оставить «на вырост». **Рекомендация:** добавить одной миграцией с D7 — дёшево, а `EXPLAIN` до и после наглядно покажет, зачем нужен индекс. Перенесено из этапа 6.
 
 ---
 
@@ -134,9 +167,9 @@ curl -s -b $J $B/tasks -H 'Accept: application/json'
 
 Самая учебная часть. Контракт API меняться не должен: после каждого пункта все тесты зелёные без правок ожиданий.
 
-- [ ] **R1. Фильтры и сортировка задач — одна реализация.** Сейчас две копии: `TaskController::index` (публичный) и `Admin/TaskController::applyTaskFilters()` (`backend/app/Http/Controllers/Admin/TaskController.php:83`), с TODO-комментариями пользователя «заменить на скоупы + when». Правило «просрочена» записано в **четырёх** местах: `Task::isOverdue()`, оба контроллера и `DashboardController::show`. Решение: скоупы модели (`scopeOverdue`, `scopeSearch` и т. п.) + `when()`; убрать 8 позиционных параметров `applyTaskFilters()`.
-- [ ] **R2. Шесть FormRequest'ов задач.** `StoreTaskRequest`, `UpdateTaskRequest`, `ListTasksRequest` и их админские версии плюс `ListAllTasksRequest` — около 700 строк. Различаются только `authorize()` и источником «чей тег» (`routeUserId()` / `todoListOwnerId()` / `taskOwnerId()`). Общее тело `update()` двух `TaskController` — туда же.
-- [ ] **R3. Политики.** `before()` с одинаковым смыслом в `TodoListPolicy` (через `match`), `TagPolicy` и `TaskPolicy` (через `in_array`) → общий trait. В `TaskPolicy` правило «список не архивный» записано двумя способами: `isArchived()` в `create` и `whereNull('archived_at')`-запрос в `ownerHasActiveList()`. Свести к одному. Учесть B4.
+- [ ] **R1. Фильтры и сортировка задач — одна реализация.** Сейчас две копии: `TaskController::index` (публичный) и `Admin/TaskController::applyTaskFilters()` (`backend/app/Http/Controllers/Admin/TaskController.php:83`), с TODO-комментариями пользователя «заменить на скоупы + when». Правило «просрочена» записано в **четырёх** местах: `Task::isOverdue()`, оба контроллера и `DashboardController::show`. Решение: скоупы модели через атрибут `#[Scope]` (`overdue()`, `search()` и т. п.; атрибут есть в Laravel 13.22 и согласуется с уже используемым `#[Fillable]`) + `when()`; убрать 8 позиционных параметров `applyTaskFilters()`. Заодно заменить `whereHas` → `whereRelation` в `indexAll` (`backend/app/Http/Controllers/Admin/TaskController.php:35`, `:37`): этот код всё равно переписывается (перенесено из этапа 6).
+- [ ] **R2. Шесть FormRequest'ов задач.** Публичные `StoreTaskRequest`, `UpdateTaskRequest`, `ListTasksRequest` и админские `UpdateTaskRequest`, `ListTasksRequest`, `ListAllTasksRequest` (админского `StoreTaskRequest` нет) — около 700 строк. Различаются только `authorize()` и источником «чей тег» (`routeUserId()` / `todoListOwnerId()` / `taskOwnerId()`). Общее тело `update()` двух `TaskController` — туда же.
+- [ ] **R3. Политики.** `before()` с одинаковым смыслом в `TodoListPolicy` (через `match`), `TagPolicy` и `TaskPolicy` (через `in_array`) → общий trait. В `TaskPolicy` правило «список не архивный» записано двумя способами: `isArchived()` в `create` и `whereNull('archived_at')`-запрос в `ownerHasActiveList()`. Свести к одному. После B4 набор полей ответа от политики не зависит, поэтому её можно писать и через `$task->todoList`. Но это не «бесплатная» проверка: маршрут передаёт политике только задачу, и ленивая загрузка списка — такой же запрос в базу, как нынешний `exists()`.
 - [ ] **R4. Enum.** Методы `is` / `isNot` / `inArray` скопированы в `TaskStatus` и `TaskPriority` → trait.
 - [ ] **R5. Строки → enum в параметрах запросов.** `due`, `sort`, `direction`, `filter` (списки и пользователи) сейчас строки — против правила «типы параметров — enum».
 - [ ] **R6. Нормализация имени** (squish + lower) повторяется в `StoreUserRequest`, `StoreTagRequest`, `UpdateTagRequest`, `UserFactory`, `TagFactory` (там только lower), а поиск в `Admin/UserController.php:21` — через `mb_strtolower` → один хелпер.
@@ -149,25 +182,26 @@ curl -s -b $J $B/tasks -H 'Accept: application/json'
 - [ ] **S1. Молчаливый `fill()`.** Поля не из `#[Fillable]` отбрасываются без ошибки (`$user->fill(['blocked_at' => now()])` ничего не делает). Включить `Model::preventSilentlyDiscardingAttributes()` хотя бы для local/testing — правило проекта «никаких тихих ошибок».
 - [ ] **S2. Внешние ключи в `#[Fillable]`.** `user_id` у `TodoList` и `Tag`, `todo_list_id` у `Task` (`backend/app/Models/Task.php:21`) не нужны: записи создаются только через связь, а она ставит ключ сама. Фабрики белый список обходят. В `update` списка от подмены `user_id` сейчас спасает только `validated()`.
 - [ ] **S3. «Молчаливый 0» в счётчиках.** `(int) ($this->todo_lists_count ?? 0)` (`backend/app/Http/Resources/UserResource.php:22`, то же в `TodoListResource`): если забыть `withCount`/`loadCount`, клиент получит правдоподобный 0 вместо ошибки.
-- [ ] **S4. Спецсимволы `LIKE` в поиске.** `%` и `_` из запроса работают как шаблоны: `?search=_` вернул все задачи. SQL-инъекции нет, но поиск ведёт себя неожиданно. Экранировать.
+- [ ] **S4. Спецсимволы `LIKE` в поиске.** `%` и `_` из запроса работают как шаблоны: `?search=_` вернул все задачи. SQL-инъекции нет, но поиск ведёт себя неожиданно. Экранировать. Способ зависит от D8: в Postgres `\` экранирует по умолчанию, в SQLite нужен явный `ESCAPE`.
 - [ ] **S5. Дыры в тестах.**
   - Если убрать `is_string` из `StoreUserRequest::prepareForValidation()`, тесты остаются зелёными, а `POST {"name": 123}` создаёт пользователя «123». Добавить в датасет `'numeric name' => [['name' => 123]]`.
   - Ветка `catch` для гонки в `UserController::store` не покрыта.
   - `tests/Unit` — заглушка; чистая логика (enum, `isOverdue`) проверяется только Feature-тестами с базой.
+- [ ] **S6. У модели `Task` нет значений по умолчанию** (бывший B5: сейчас ничего не ломает, это защита от будущей ошибки)
+  - **Проблема.** Значения по умолчанию `status = 'todo'` и `priority = 'medium'` живут только в базе. После `$list->tasks()->create(['title' => ...])` в объекте `status === null`, хотя в базе `'todo'`: Laravel после вставки строку не перечитывает. Любой код, который вызовет `isOverdue()` сразу после такого `create()`, упадёт на `null->isNot()`. Контроллер обходит это (`backend/app/Http/Controllers/TaskController.php:116-117`), но платит лишним запросом: `INSERT` без статуса, затем `UPDATE` из `changeStatus()`.
+  - **Решение.** `protected $attributes = ['status' => 'todo', 'priority' => 'medium']` в `backend/app/Models/Task.php`. По желанию — собрать `store()` в один `INSERT`: статус и `completed_at` задать до сохранения.
+  - **Проверка.** Тест/tinker: `create()` → `status` равен `TaskStatus::Todo` без `refresh()`; журнал SQL `store` — без лишнего `UPDATE`.
 
 ---
 
 ## Этап 6. Стиль и мусор — одной пачкой
 
-- [ ] `whereHas` → `whereRelation` (`backend/app/Http/Controllers/Admin/TaskController.php:35`, `:37`).
-- [ ] `DashboardController`: константа `RecentChangesLimit` → `RECENT_CHANGES_LIMIT` (PSR-1); поле `sort_at` — копия `updated_at`, сортировать прямо по `updated_at` и убрать финальный `map`. По желанию — собрать `recent_changes` одним SQL через `UNION ALL`.
+- [ ] `DashboardController`: константа `RecentChangesLimit` → `RECENT_CHANGES_LIMIT` (PSR-1); поле `sort_at` — копия `updated_at`, сортировать прямо по `updated_at` и убрать финальный `map`. При одинаковом `updated_at` порядок `recent_changes` случайный (секундная точность, как в B3) — добавить второй ключ сортировки. По желанию — собрать `recent_changes` одним SQL через `UNION ALL`.
 - [ ] `ListTodoListsRequest::filter()` (`backend/app/Http/Requests/ListTodoListsRequest.php:33`) читать через `validated()`, как остальные.
 - [ ] В миграции `0001_01_01_000000_create_users_table` closure без `: void` — привести к стилю доменной миграции.
 - [ ] Лишний `Hash::make` в `backend/database/seeders/AdminSeeder.php:27`: cast `hashed` у модели и так хэширует.
 - [ ] `backend/routes/console.php` — неиспользуемая команда `inspire` из шаблона.
 - [ ] Неиспользуемые подключения в `backend/config/database.php` (`mysql`, `mariadb`, `sqlsrv`, `redis`).
-- [ ] Смешанные типы времени: состояния — `timestamptz`, а `created_at`/`updated_at` — `timestamp` без пояса. Рассмотреть `timestampsTz()`. Это миграция → `schemaspy.sql`.
-- [ ] Индекс `task_tag(tag_id)` — на вырост: составной PK его не покрывает.
 - [ ] Предупреждение eslint `vue/html-self-closing` в `frontend/components/ui/UiInput.vue:19` (`npx eslint --fix`).
 
 ---
